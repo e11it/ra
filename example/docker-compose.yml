@@ -1,0 +1,18 @@
+---
+version: '3'
+
+services:
+  nginx:
+    image: nginx:stable-alpine
+    depends_on:
+      - rab
+    restart: always
+    ports:
+      - 80:80
+    volumes:
+      - ./nginx_conf.d:/etc/nginx/conf.d:ro
+  #
+  rab:
+    image: rab:latest
+    restart: always
+...
