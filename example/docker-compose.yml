@@ -1,18 +1,130 @@
 ---
-version: '3'
+version: '3.9'
+
+x-logging:
+  &default-logging
+  options:
+    max-size: '12m'
+    max-file: '5'
+  driver: json-file
 
 services:
   nginx:
-    image: nginx:stable-alpine
+    image: "${ORG_PREFIX:-}xcgd/nginx-vts:${NGINX_VERSION:-stable}"
+    init: true
+    restart: always
+    logging: *default-logging
     depends_on:
-      - rab
+      - ra
     restart: always
     ports:
-      - 80:80
+      - 8080:80
     volumes:
       - ./nginx_conf.d:/etc/nginx/conf.d:ro
-  #
-  rab:
-    image: rab:latest
+  # /////////////////////////////////////////////////////////////////////////////
+  ra:
+    image:  "${ORG_PREFIX:-}ra:${RA_VERSION:-latest}"
     restart: always
+    logging: *default-logging
+    init: true
+    volumes:
+      - ./config.yml:/app/config.yml
+  # /////////////////////////////////////////////////////////////////////////////
+  zookeeper:
+    image: "${ORG_PREFIX:-}confluentinc/cp-zookeeper:${CONFLUENT_VERSION:-7.1.1}"
+    hostname: zookeeper
+    container_name: zookeeper
+    init: true
+    logging: *default-logging
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+  # /////////////////////////////////////////////////////////////////////////////
+  broker:
+    image: "${ORG_PREFIX:-}confluentinc/cp-kafka:${CONFLUENT_VERSION:-7.1.1}"
+    #hostname: ${HOSTNAME:-localhost}
+    #container_name: ${HOSTNAME:-localhost}
+    restart: always
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 262144
+        hard: 262144
+    logging: *default-logging
+    environment:
+      TZ: Europe/Moscow
+      KAFKA_BROKER_ID: 1
+      KAFKA_LOG_RETENTION_BYTES: 3221225472
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://${HOSTNAME:-localhost}:9092,PLAINTEXT_HOST://broker:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_HOST
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_NUM_NETWORK_THREADS: 6
+      KAFKA_NUM_IO_THREADS: 6
+      KAFKA_SOCKET_REQUEST_MAX_BYTES: 10485760
+      KAFKA_SOCKET_RECEIVE_BUFFER_BYTES: 10485760
+      KAFKA_SOCKET_SEND_BUFFER_BYTES: 10485760
+      KAFKA_JMX_PORT: 39999
+  # ///////////////////////////////////////////////////////////////////////////////////
+  schema-registry:
+    image: "${ORG_PREFIX:-}confluentinc/cp-schema-registry:${CONFLUENT_VERSION:-7.1.1}"
+    hostname: schema-registry
+    container_name: schema-registry
+    init: true
+    logging: *default-logging
+    restart: always
+    depends_on:
+      - broker
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: broker:29092
+      SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL: PLAINTEXT
+      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_METHODS: "GET,POST,PUT,DELETE,OPTIONS"
+      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_ORIGIN: "*"
+      SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: 'FULL_TRANSITIVE'
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 1
+    #logging:
+    #  driver: "json-file"
+    #  options:
+    #    max-size: "512m"
+  # ///////////////////////////////////////////////////////////////////////////////
+  rest-proxy:
+    image: "${ORG_PREFIX:-}confluentinc/cp-kafka-rest:${CONFLUENT_VERSION:-7.1.1}"
+    depends_on:
+      - zookeeper
+      - broker
+      - schema-registry
+      - nginx
+    init: true
+    logging: *default-logging
+    restart: always
+    environment:
+      KAFKA_REST_HOST_NAME: rest-proxy
+      KAFKA_REST_ID: 'rp1'
+      KAFKA_REST_BOOTSTRAP_SERVERS: 'broker:29092'
+      KAFKA_REST_LISTENERS: "http://0.0.0.0:8082"
+      KAFKA_REST_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
+      KAFKA_REST_CONSUMER_REQUEST_TIMEOUT_MS: 30000
+      KAFKAREST_HEAP_OPTS: -Xmx2G
+      KAFKA_REST_COMPRESSION_ENABLE: 'true'
+      KAFKA_REST_ACKS: all
+      KAFKA_REST_BUFFER_MEMORY: 100663296
+      KAFKA_REST_RETRIES: 2147483647
+      KAFKA_REST_COMPRESSION_TYPE: 'lz4'
+      KAFKA_REST_SHUTDOWN_GRACEFUL_MS: 30000
+      # KAFKA_REST_LOG4J_ROOT_LOGLEVEL: 'TRACE'
+      KAFKA_REST_LOG4J_LOGGERS: "io.confluent.kafka.serializers=WARN"
+      # KAFKA_REST_DEBUG: 'True'
 ...
