@@ -1,13 +1,21 @@
 package main
 
 import (
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestMain(m *testing.M) {
+	logrus.SetOutput(ioutil.Discard)
+	os.Exit(m.Run())
+}
 
 func TestAuthRequest(t *testing.T) {
 	router := testGetAuthServer()
@@ -24,7 +32,7 @@ func TestAuthRequest(t *testing.T) {
 	req.Header.Set("Authorization", "Basic c2FwOnNlQzIzc0JGanV0azg5TnY=")
 	router.ServeHTTP(w, req)
 
-	//assert.False(t, called)
+	// assert.False(t, called)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
@@ -43,7 +51,7 @@ func TestBadRequest(t *testing.T) {
 	req.Header.Set("Authorization", "Basic c2FwOnNlQzIzc0JGanV0azg5TnY=")
 	router.ServeHTTP(w, req)
 
-	//assert.False(t, called)
+	// assert.False(t, called)
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
@@ -62,7 +70,7 @@ func TestSchemaRegistrySuccess(t *testing.T) {
 	req.Header.Set("Authorization", "Basic c2FwOnNlQzIzc0JGanV0azg5TnY=")
 	router.ServeHTTP(w, req)
 
-	//assert.False(t, called)
+	// assert.False(t, called)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
@@ -81,9 +89,10 @@ func TestSchemaRegistryDeny(t *testing.T) {
 	req.Header.Set("Authorization", "Basic c2FwOnNlQzIzc0JGanV0azg5TnY=")
 	router.ServeHTTP(w, req)
 
-	//assert.False(t, called)
+	// assert.False(t, called)
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
+
 func BenchmarkAuthRequest(b *testing.B) {
 	router := testGetAuthServer()
 	assert.NotNilf(b, router, "Error init router")
@@ -106,8 +115,8 @@ func BenchmarkAuthRequest(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		router.ServeHTTP(w, req)
 	}
-	//assert.False(t, called)
-	//assert.Equal(t, http.StatusOK, w.Code)
+	// assert.False(t, called)
+	// assert.Equal(t, http.StatusOK, w.Code)
 }
 
 //func TestPingRoute(t *testing.T) {
