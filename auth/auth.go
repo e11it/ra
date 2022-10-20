@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	lru "github.com/hashicorp/golang-lru"
@@ -15,14 +16,14 @@ type authCheck func(c *gin.Context) error
 
 type auth struct {
 	cache  *lru.ARCCache
-	checks []authCheck
+	checks *[]authCheck
 
 	acl *[]ACLCompile
 }
 
 func (a *auth) addCheck(ac authCheck) {
 	if ac != nil {
-		a.checks = append(a.checks, ac)
+		*a.checks = append(*a.checks, ac)
 	}
 }
 
@@ -35,19 +36,36 @@ func NewAuth(c *Config) (*auth, error) {
 		return nil, err
 	}
 	a.acl = c.getACLCompile()
+	a.makeChecks(c)
 
-	a.addCheck(a.getHeadersToAttr(c))
-	a.addCheck(a.getAuth())
-	a.addCheck(a.getURLValidReg(c))
-	//Last
-	//a.addCheck(a.getContentTypeValidReg(c))
-	a.addCheck(a.getACLVerifier())
 	return a, err
+}
+
+func (a *auth) UpdateAuth(c *Config) {
+	a.cache.Purge()
+	a.acl = c.getACLCompile()
+	a.makeChecks(c)
+}
+
+func (a *auth) makeChecks(cfg *Config) {
+	var config Config = *cfg
+	checks := make([]authCheck, 0)
+	a.checks = &checks
+	a.addCheck(a.getHeadersToAttr(&config))
+	a.addCheck(a.getAuth())
+	a.addCheck(a.getURLValidReg(&config))
+	//Last
+	//a.addCheck(a.getContentTypeValidReg(cfg))
+	a.addCheck(a.getACLVerifier(*a.acl))
+}
+
+func (a *auth) getChecks() []authCheck {
+	return *a.checks
 }
 
 func (a *auth) GetMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		for _, f := range a.checks {
+		for _, f := range a.getChecks() {
 			if err := f(c); err != nil {
 				log.WithFields(log.Fields{
 					"URL":         c.MustGet("AuthURL"),
@@ -90,6 +108,9 @@ func (a *auth) getHeadersToAttr(cfg *Config) authCheck {
 		c.Set("ContentType", c.ContentType())
 		c.Set("IP", c.GetHeader(cfg.Headers.IP))
 		c.Set("Method", c.GetHeader(cfg.Headers.Method))
+
+		log.Infoln("url header", cfg.URLValidReg)
+		time.Sleep(5 * time.Second)
 		return nil
 	}
 }
@@ -103,6 +124,8 @@ func (a *auth) getURLValidReg(cfg *Config) authCheck {
 			if !url_reg.MatchString(c.MustGet("AuthURL").(string)) {
 				return fmt.Errorf("Incorrect URL")
 			}
+			log.Infoln("url reg", cfg.URLValidReg)
+			time.Sleep(5 * time.Second)
 			return nil
 		}
 	}
@@ -125,10 +148,12 @@ func (a *auth) getContentTypeValidReg(cfg *Config) authCheck {
 	return nil
 }
 
-func (a *auth) getACLVerifier() authCheck {
-	if len(*a.acl) > 0 {
+func (a *auth) getACLVerifier(acl_cmp []ACLCompile) authCheck {
+	if len(acl_cmp) > 0 {
 
 		return func(c *gin.Context) error {
+
+			log.Infoln((acl_cmp)[0].ContentType)
 			var err error
 			var cacheKey cacheKey
 
@@ -141,7 +166,7 @@ func (a *auth) getACLVerifier() authCheck {
 				return rerr.(error)
 			}
 
-			for _, acl := range *a.acl {
+			for _, acl := range acl_cmp {
 				if acl.IsMatch(c.MustGet("AuthURL").(string)) {
 					lerr := acl.IsAllow(c.MustGet("AuthUser").(string), c.MustGet("Method").(string), c.MustGet("ContentType").(string))
 					if lerr == nil {
@@ -153,8 +178,8 @@ func (a *auth) getACLVerifier() authCheck {
 				}
 			}
 			if err == nil {
-				a.cache.Add(cacheKey, err)
 				err = fmt.Errorf("Permission denied")
+				a.cache.Add(cacheKey, err)
 			}
 			return err
 		}

@@ -1,3 +1,4 @@
 bin/
 rab.vscode
 .vscode/
+.DS_Store

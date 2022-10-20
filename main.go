@@ -12,12 +12,15 @@ import (
 	"time"
 
 	"github.com/e11it/ra/auth"
+	"github.com/e11it/ra/checksum"
 	ginlogrus "github.com/e11it/ra/ginlogrus"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/configor"
 
 	log "github.com/sirupsen/logrus"
 )
+
+const path string = "example/config.yml"
 
 type config struct {
 	APPName  string `default:"app name"`
@@ -29,27 +32,45 @@ type config struct {
 	ShutdownTimeout uint `default:"5"`
 }
 
+type Authorizer interface {
+	GetMiddleware() gin.HandlerFunc
+}
+
+type SumChecker interface {
+	CompareCheckSum(newPath string) (ok bool)
+}
+
 func init() {
 	// log.SetFormatter(&log.JSONFormatter{})
 	log.SetLevel(log.DebugLevel)
 }
 
-func createAuthRouter(cfg *config) (*gin.Engine, error) {
+func createAuthRouter(auth_m Authorizer) (*gin.Engine, error) {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(ginlogrus.Logger(), gin.Recovery())
 	// router.Use(helpers.DebugLogger())
-	auth_m, err := auth.NewAuth(&cfg.Auth)
-	if err != nil {
-		log.WithError(err).Fatalln("Can't init auth module")
-		return nil, err
-	}
 
 	router.Use(auth_m.GetMiddleware())
 	router.GET("/auth", func(c *gin.Context) {
 		c.String(http.StatusOK, "Auth")
 	})
 	return router, nil
+}
+
+func loadConfig(cfg *config) {
+	if err := configor.New(&configor.Config{Verbose: false}).Load(cfg, path); err != nil {
+		log.WithError(err).Fatalln("Can't parse config")
+	}
+	log.Infoln("load config")
+}
+
+func updateConfig(cfg *config, cs SumChecker) {
+	if cs.CompareCheckSum(path) {
+		log.Warningln("Config is the same")
+		return
+	}
+	loadConfig(cfg)
 }
 
 func main() {
@@ -59,13 +80,19 @@ func main() {
 
 	os.Setenv("CONFIGOR_ENV_PREFIX", "RA")
 
-	if err := configor.New(&configor.Config{Verbose: false}).Load(Config, "config.yml"); err != nil {
-		log.WithError(err).Fatalln("Can't parse config")
+	cs, err := checksum.NewChecksum(path)
+	if err != nil {
+		log.WithError(err).Fatalln("Can't get checksum module")
 	}
-	// fmt.Printf("config: %#v", Config)
+	loadConfig(Config)
+
+	auth_m, err := auth.NewAuth(&Config.Auth)
+	if err != nil {
+		log.WithError(err).Fatalln("Can't init auth module")
+	}
 
 	// method | path | user
-	router, err := createAuthRouter(Config)
+	router, err := createAuthRouter(auth_m)
 	if err != nil {
 		log.Fatalf("Error create auth: %s\n", err.Error())
 	}
@@ -89,17 +116,30 @@ func main() {
 	// kill (no param) default send syscall.SIGTERM
 	// kill -2 is syscall.SIGINT
 	// kill -9 is syscall.SIGKILL but can't be catch, so don't need add it
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-	log.Println("Shuting down server...")
+	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
+	for {
+		s, ok := <-quit
+		if !ok {
+			break
+		}
+		switch s {
+		case syscall.SIGHUP:
+			updateConfig(Config, cs)
+			auth_m.UpdateAuth(&Config.Auth)
+		case syscall.SIGINT, syscall.SIGTERM:
+			log.Println("Shuting down server...")
 
-	// The context is used to inform the server it has 5 seconds to finish
-	// the request it is currently handling
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(Config.ShutdownTimeout)*time.Second)
-	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Println("Server forced to shutdown:", err)
+			// The context is used to inform the server it has 5 seconds to finish
+			// the request it is currently handling
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(Config.ShutdownTimeout)*time.Second)
+			defer cancel()
+			if err := srv.Shutdown(ctx); err != nil {
+				log.Println("Server forced to shutdown:", err)
+			}
+
+			log.Println("Server exiting")
+			return
+		}
 	}
 
-	log.Println("Server exiting")
 }

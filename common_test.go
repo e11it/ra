@@ -7,6 +7,7 @@ import (
 
 	"github.com/e11it/ra/auth"
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
 
 // Helper function to process a request and test its response
@@ -52,7 +53,12 @@ func testGetAuthServer() *gin.Engine {
 		},
 	}
 
-	router, err := createAuthRouter(cfg)
+	auth_m, err := auth.NewAuth(&cfg.Auth)
+	if err != nil {
+		log.WithError(err).Fatalln("Can't init auth module")
+	}
+
+	router, err := createAuthRouter(auth_m)
 	if err != nil {
 		return nil
 	}
@@ -74,7 +80,12 @@ func testGetSRServer() *gin.Engine {
 		},
 	}
 
-	router, err := createAuthRouter(cfg)
+	auth_m, err := auth.NewAuth(&cfg.Auth)
+	if err != nil {
+		log.WithError(err).Fatalln("Can't init auth module")
+	}
+
+	router, err := createAuthRouter(auth_m)
 	if err != nil {
 		return nil
 	}
