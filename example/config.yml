@@ -8,4 +8,4 @@ auth:
     methods:
     - POST
     contenttype:
-    - application/vnd.kafka.avro.v2+json.test
+    - application/vnd.kafka.avro.v2+json

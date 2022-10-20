@@ -60,14 +60,14 @@ func createAuthRouter(auth_m Authorizer) (*gin.Engine, error) {
 
 func loadConfig(cfg *config) {
 	if err := configor.New(&configor.Config{Verbose: false}).Load(cfg, path); err != nil {
-		log.WithError(err).Fatalln("Can't parse config")
+		log.WithError(err).Fatalln("can't parse config")
 	}
 	log.Infoln("load config")
 }
 
 func updateConfig(cfg *config, cs SumChecker) {
 	if cs.CompareCheckSum(path) {
-		log.Warningln("Config is the same")
+		log.Warningln("config is the same")
 		return
 	}
 	loadConfig(cfg)
@@ -82,19 +82,19 @@ func main() {
 
 	cs, err := checksum.NewChecksum(path)
 	if err != nil {
-		log.WithError(err).Fatalln("Can't get checksum module")
+		log.WithError(err).Fatalln("can't get checksum module")
 	}
 	loadConfig(Config)
 
 	auth_m, err := auth.NewAuth(&Config.Auth)
 	if err != nil {
-		log.WithError(err).Fatalln("Can't init auth module")
+		log.WithError(err).Fatalln("can't init auth module")
 	}
 
 	// method | path | user
 	router, err := createAuthRouter(auth_m)
 	if err != nil {
-		log.Fatalf("Error create auth: %s\n", err.Error())
+		log.Fatalf("error create auth: %s\n", err.Error())
 	}
 
 	srv := &http.Server{
@@ -127,17 +127,17 @@ func main() {
 			updateConfig(Config, cs)
 			auth_m.UpdateAuth(&Config.Auth)
 		case syscall.SIGINT, syscall.SIGTERM:
-			log.Println("Shuting down server...")
+			log.Println("shuting down server...")
 
 			// The context is used to inform the server it has 5 seconds to finish
 			// the request it is currently handling
 			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(Config.ShutdownTimeout)*time.Second)
 			defer cancel()
 			if err := srv.Shutdown(ctx); err != nil {
-				log.Println("Server forced to shutdown:", err)
+				log.Println("server forced to shutdown:", err)
 			}
 
-			log.Println("Server exiting")
+			log.Println("server exiting")
 			return
 		}
 	}
