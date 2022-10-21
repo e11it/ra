@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1666034274778,
+  "lastUpdate": 1666362809958,
   "repoUrl": "https://github.com/e11it/ra",
   "entries": {
     "Go Benchmark": [
@@ -30,6 +30,36 @@ window.BENCHMARK_DATA = {
             "value": 17828,
             "unit": "ns/op\t    4841 B/op\t      56 allocs/op",
             "extra": "66984 times\n2 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "im@e11it.ru",
+            "name": "e11it",
+            "username": "e11it"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b7fd887d1c6fcfeecd043dedf8dfba976d306a9c",
+          "message": "Merge pull request #1 from alpocketmonster/master\n\nReload of config",
+          "timestamp": "2022-10-21T17:32:53+03:00",
+          "tree_id": "a3ea0c2c1a9be6de564abd73a24d88672ed5e74e",
+          "url": "https://github.com/e11it/ra/commit/b7fd887d1c6fcfeecd043dedf8dfba976d306a9c"
+        },
+        "date": 1666362809522,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkAuthRequest",
+            "value": 16196,
+            "unit": "ns/op\t    4848 B/op\t      56 allocs/op",
+            "extra": "72333 times\n2 procs"
           }
         ]
       }
