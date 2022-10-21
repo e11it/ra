@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1666362809958,
+  "lastUpdate": 1666363027089,
   "repoUrl": "https://github.com/e11it/ra",
   "entries": {
     "Go Benchmark": [
@@ -60,6 +60,36 @@ window.BENCHMARK_DATA = {
             "value": 16196,
             "unit": "ns/op\t    4848 B/op\t      56 allocs/op",
             "extra": "72333 times\n2 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "im@e11it.ru",
+            "name": "e11it",
+            "username": "e11it"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6a9268a5ad3c95865068864f41d8caeb1dfd6178",
+          "message": "Update main.yml",
+          "timestamp": "2022-10-21T17:36:23+03:00",
+          "tree_id": "eff936562c25d957cdce3c39891d4a5d36e2ac37",
+          "url": "https://github.com/e11it/ra/commit/6a9268a5ad3c95865068864f41d8caeb1dfd6178"
+        },
+        "date": 1666363025583,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkAuthRequest",
+            "value": 14142,
+            "unit": "ns/op\t    4829 B/op\t      56 allocs/op",
+            "extra": "85063 times\n2 procs"
           }
         ]
       }
