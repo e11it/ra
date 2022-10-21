@@ -2,9 +2,9 @@ auth:
   prefix: /topics/
   urlvalidreg: ^\d{3}-\d(-\d{3}-\d)?\.[a-z0-9-]+\.(db|cdc|cmd|sys|log|tmp)\.[a-z0-9-.]+\.\d+$
   acl:
-  - path: ^888-8\.example\.db\.
+  - path: ^000-0\.sap-erp.*$
     users:
-    - avro-user
+    - sap
     methods:
     - POST
     contenttype:

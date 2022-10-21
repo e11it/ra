@@ -14,40 +14,65 @@ import (
 type authCheck func(c *gin.Context) error
 
 type auth struct {
-	cache  *lru.ARCCache
-	checks []authCheck
-
-	acl *[]ACLCompile
+	cache  **lru.ARCCache
+	checks *[]authCheck
 }
 
 func (a *auth) addCheck(ac authCheck) {
 	if ac != nil {
-		a.checks = append(a.checks, ac)
+		*a.checks = append(*a.checks, ac)
 	}
 }
 
 func NewAuth(c *Config) (*auth, error) {
-	var err error
 	a := new(auth)
-	a.cache, err = lru.NewARC(c.CacheSize)
+	cache, err := lru.NewARC(c.CacheSize)
 	if err != nil {
 		log.Println(c.CacheSize, c.Headers.Method)
 		return nil, err
 	}
-	a.acl = c.getACLCompile()
+	a.cache = &cache
+	a.makeChecks(c)
 
-	a.addCheck(a.getHeadersToAttr(c))
-	a.addCheck(a.getAuth())
-	a.addCheck(a.getURLValidReg(c))
-	//Last
-	//a.addCheck(a.getContentTypeValidReg(c))
-	a.addCheck(a.getACLVerifier())
 	return a, err
+}
+
+func (a *auth) UpdateAuth(c *Config) {
+	var err error
+	cache, err := lru.NewARC(c.CacheSize)
+	if err != nil {
+		log.Println(c.CacheSize, c.Headers.Method)
+		(*a.cache).Purge()
+	}
+	a.cache = &cache
+
+	a.makeChecks(c)
+}
+
+func (a *auth) getCache() *lru.ARCCache {
+	return *a.cache
+}
+
+func (a *auth) makeChecks(cfg *Config) {
+	var config Config = *cfg
+	acl := cfg.getACLCompile()
+	checks := make([]authCheck, 0)
+	a.checks = &checks
+	a.addCheck(a.getHeadersToAttr(&config))
+	a.addCheck(a.getAuth())
+	a.addCheck(a.getURLValidReg(&config))
+	//Last
+	//a.addCheck(a.getContentTypeValidReg(cfg))
+	a.addCheck(a.getACLVerifier(*acl, a.getCache()))
+}
+
+func (a *auth) getChecks() []authCheck {
+	return *a.checks
 }
 
 func (a *auth) GetMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		for _, f := range a.checks {
+		for _, f := range a.getChecks() {
 			if err := f(c); err != nil {
 				log.WithFields(log.Fields{
 					"URL":         c.MustGet("AuthURL"),
@@ -125,8 +150,8 @@ func (a *auth) getContentTypeValidReg(cfg *Config) authCheck {
 	return nil
 }
 
-func (a *auth) getACLVerifier() authCheck {
-	if len(*a.acl) > 0 {
+func (a *auth) getACLVerifier(acl []ACLCompile, cache *lru.ARCCache) authCheck {
+	if len(acl) > 0 {
 
 		return func(c *gin.Context) error {
 			var err error
@@ -134,27 +159,27 @@ func (a *auth) getACLVerifier() authCheck {
 
 			cacheKey = *getCacheKey(c)
 			log.Info(cacheKey)
-			if rerr, ok := a.cache.Get(cacheKey); ok {
+			if rerr, ok := cache.Get(cacheKey); ok {
 				if rerr == nil {
 					return nil
 				}
 				return rerr.(error)
 			}
 
-			for _, acl := range *a.acl {
+			for _, acl := range acl {
 				if acl.IsMatch(c.MustGet("AuthURL").(string)) {
 					lerr := acl.IsAllow(c.MustGet("AuthUser").(string), c.MustGet("Method").(string), c.MustGet("ContentType").(string))
 					if lerr == nil {
 						// ALC allow!
-						a.cache.Add(cacheKey, nil)
+						cache.Add(cacheKey, nil)
 						return nil
 					}
 					err = lerr
 				}
 			}
 			if err == nil {
-				a.cache.Add(cacheKey, err)
 				err = fmt.Errorf("Permission denied")
+				cache.Add(cacheKey, err)
 			}
 			return err
 		}
