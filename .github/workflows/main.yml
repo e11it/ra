@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   benchmark:
-    name: Run Go benchmark example
+    name: Run Go benchmark example 2
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
