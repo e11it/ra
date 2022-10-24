@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// Задаваема конфигурация
 type ACLCfg struct {
 	Path        string
 	Users       []string

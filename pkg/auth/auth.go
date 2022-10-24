@@ -61,8 +61,8 @@ func (a *auth) makeChecks(cfg *Config) {
 	a.addCheck(a.getHeadersToAttr(&config))
 	a.addCheck(a.getAuth())
 	a.addCheck(a.getURLValidReg(&config))
-	//Last
-	//a.addCheck(a.getContentTypeValidReg(cfg))
+	// Last
+	// a.addCheck(a.getContentTypeValidReg(cfg))
 	a.addCheck(a.getACLVerifier(*acl, a.getCache()))
 }
 
@@ -89,7 +89,6 @@ func (a *auth) GetMiddleware() gin.HandlerFunc {
 }
 
 func (a *auth) check(c *gin.Context) {
-
 }
 
 func (a *auth) getAuth() authCheck {
@@ -121,7 +120,6 @@ func (a *auth) getHeadersToAttr(cfg *Config) authCheck {
 
 func (a *auth) getURLValidReg(cfg *Config) authCheck {
 	if len(cfg.URLValidReg) > 0 {
-
 		url_reg := regexp.MustCompile(cfg.URLValidReg)
 
 		return func(c *gin.Context) error {
@@ -152,7 +150,6 @@ func (a *auth) getContentTypeValidReg(cfg *Config) authCheck {
 
 func (a *auth) getACLVerifier(acl []ACLCompile, cache *lru.ARCCache) authCheck {
 	if len(acl) > 0 {
-
 		return func(c *gin.Context) error {
 			var err error
 			var cacheKey cacheKey

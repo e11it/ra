@@ -32,19 +32,18 @@ func (c *Config) SetDefauls() {
 }
 
 func (c *Config) getACLCompile() *[]ACLCompile {
-	var acl_list []ACLCompile
-	acl_list = make([]ACLCompile, len(c.ACL))
+	aclList := make([]ACLCompile, len(c.ACL))
 	for id, acl := range c.ACL {
-		acl_comp := new(ACLCompile)
-		acl_comp.Path = regexp.MustCompile(acl.Path)
-		acl_comp.Users, acl_comp.AnyUsers = arrayToMap(acl.Users)
-		acl_comp.Methods, acl_comp.AnyMethods = arrayToMap(acl.Methods)
-		acl_comp.ContentType, acl_comp.AnyContentType = arrayToMap(acl.ContentType)
+		aclComp := new(ACLCompile)
+		aclComp.Path = regexp.MustCompile(acl.Path)
+		aclComp.Users, aclComp.AnyUsers = arrayToMap(acl.Users)
+		aclComp.Methods, aclComp.AnyMethods = arrayToMap(acl.Methods)
+		aclComp.ContentType, aclComp.AnyContentType = arrayToMap(acl.ContentType)
 
-		acl_list[id] = *acl_comp
+		aclList[id] = *aclComp
 	}
 
-	return &acl_list
+	return &aclList
 }
 
 func arrayToMap(in []string) (rez map[string]bool, any bool) {

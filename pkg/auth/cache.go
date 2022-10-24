@@ -10,6 +10,7 @@ type cacheKey struct {
 	ContentType interface{}
 }
 
+// TODO: Эту функцию куда то в main.go(она специфична для фреймворка)
 func getCacheKey(c *gin.Context) *cacheKey {
 	return &cacheKey{
 		AuthURL:     c.MustGet("AuthURL"),

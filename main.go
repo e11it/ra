@@ -1,6 +1,3 @@
-//go:build go1.8
-// +build go1.8
-
 package main
 
 import (
@@ -12,15 +9,12 @@ import (
 	"time"
 
 	"github.com/e11it/ra/auth"
-	"github.com/e11it/ra/checksum"
 	ginlogrus "github.com/e11it/ra/ginlogrus"
+	"github.com/e11it/ra/internal/app/ra"
 	"github.com/gin-gonic/gin"
-	"github.com/jinzhu/configor"
 
 	log "github.com/sirupsen/logrus"
 )
-
-const path string = "example/config.yml"
 
 type config struct {
 	APPName  string `default:"app name"`
@@ -58,34 +52,20 @@ func createAuthRouter(auth_m Authorizer) (*gin.Engine, error) {
 	return router, nil
 }
 
-func loadConfig(cfg *config) {
-	if err := configor.New(&configor.Config{Verbose: false}).Load(cfg, path); err != nil {
-		log.WithError(err).Fatalln("can't parse config")
-	}
-	log.Infoln("load config")
-}
-
-func updateConfig(cfg *config, cs SumChecker) {
-	if cs.CompareCheckSum(path) {
-		log.Warningln("config is the same")
-		return
-	}
-	loadConfig(cfg)
-}
-
 func main() {
+	ra, err := ra.NewRA(getEnv("RA_CONFIG_FILE", "config.yml"))
 	// Log as JSON instead of the default ASCII formatter.
-
+	/* REMOVE
 	Config := new(config)
 
 	os.Setenv("CONFIGOR_ENV_PREFIX", "RA")
-
+	path := getEnv("RA_CONFIG_FILE", "config.yml")
 	cs, err := checksum.NewChecksum(path)
 	if err != nil {
 		log.WithError(err).Fatalln("can't get checksum module")
 	}
 	loadConfig(Config)
-
+	*/
 	auth_m, err := auth.NewAuth(&Config.Auth)
 	if err != nil {
 		log.WithError(err).Fatalln("can't init auth module")
@@ -124,8 +104,13 @@ func main() {
 		}
 		switch s {
 		case syscall.SIGHUP:
+			// TODO: перегрузка конфига
+			ra.ReloadHandler()
+
+			/* REMOVE
 			updateConfig(Config, cs)
 			auth_m.UpdateAuth(&Config.Auth)
+			*/
 		case syscall.SIGINT, syscall.SIGTERM:
 			log.Println("shuting down server...")
 
@@ -141,5 +126,12 @@ func main() {
 			return
 		}
 	}
+}
 
+func getEnv(key, fallback string) string {
+	value, exists := os.LookupEnv(key)
+	if !exists {
+		value = fallback
+	}
+	return value
 }
