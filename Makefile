@@ -43,7 +43,7 @@ go-download:
 
 go-lint-install:
 	#@mkdir bin
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.46.2
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.50.1
 
 go-lint:
 	./bin/golangci-lint version
