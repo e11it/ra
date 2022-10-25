@@ -8,9 +8,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/e11it/ra/auth"
 	ginlogrus "github.com/e11it/ra/ginlogrus"
 	"github.com/e11it/ra/internal/app/ra"
+	"github.com/e11it/ra/pkg/auth"
 	"github.com/gin-gonic/gin"
 
 	log "github.com/sirupsen/logrus"
@@ -54,31 +54,21 @@ func createAuthRouter(auth_m Authorizer) (*gin.Engine, error) {
 
 func main() {
 	ra, err := ra.NewRA(getEnv("RA_CONFIG_FILE", "config.yml"))
-	// Log as JSON instead of the default ASCII formatter.
-	/* REMOVE
-	Config := new(config)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.New()
+	router.Use(ginlogrus.Logger(), gin.Recovery())
+	// router.Use(helpers.DebugLogger())
 
-	os.Setenv("CONFIGOR_ENV_PREFIX", "RA")
-	path := getEnv("RA_CONFIG_FILE", "config.yml")
-	cs, err := checksum.NewChecksum(path)
-	if err != nil {
-		log.WithError(err).Fatalln("can't get checksum module")
-	}
-	loadConfig(Config)
-	*/
-	auth_m, err := auth.NewAuth(&Config.Auth)
-	if err != nil {
-		log.WithError(err).Fatalln("can't init auth module")
-	}
-
-	// method | path | user
-	router, err := createAuthRouter(auth_m)
-	if err != nil {
-		log.Fatalf("error create auth: %s\n", err.Error())
-	}
+	router.Use(ra.GetAuthMiddlerware())
+	router.GET("/auth", func(c *gin.Context) {
+		c.String(http.StatusOK, "Auth")
+	})
 
 	srv := &http.Server{
-		Addr:    Config.Addr,
+		Addr:    ra.GetServerAddr(),
 		Handler: router,
 	}
 
@@ -116,7 +106,7 @@ func main() {
 
 			// The context is used to inform the server it has 5 seconds to finish
 			// the request it is currently handling
-			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(Config.ShutdownTimeout)*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(ra.GetShutdownTimeout())*time.Second)
 			defer cancel()
 			if err := srv.Shutdown(ctx); err != nil {
 				log.Println("server forced to shutdown:", err)
