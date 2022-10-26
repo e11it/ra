@@ -5,9 +5,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/e11it/ra/auth"
+	ginlogrus "github.com/e11it/ra/ginlogrus"
+	"github.com/e11it/ra/internal/app/ra"
 	"github.com/gin-gonic/gin"
-	log "github.com/sirupsen/logrus"
 )
 
 // Helper function to process a request and test its response
@@ -31,64 +31,58 @@ func testMiddlewareRequest(t *testing.T, r *gin.Engine, expectedHTTPCode int) {
 	})
 }
 
-func testGetAuthServer() *gin.Engine {
-	cfg := new(config)
-	cfg.Auth.SetDefauls()
-	cfg.Auth.Prefix = "/topics/"
-	cfg.Auth.URLValidReg = `^\d{3}-0\.[a-z0-9-]+\.(db|cdc|cmd|sys|log|tmp)\.[a-z0-9-.]+\.\d+$`
-	cfg.Auth.ContentTypeValidReg = `^(application/vnd.kafka.avro.v1+json)$`
-
-	cfg.Auth.ACL = []auth.ACLCfg{
-		{
-			Path:        `000-0.+?`,
-			Users:       []string{"sap"},
-			Methods:     []string{"any"},
-			ContentType: []string{`application/vnd.kafka.avro.v1+json`, `application/vnd.kafka.binary.v2+json`},
-		},
-		{
-			Path:        `000-0.sap-erp\.+?`,
-			Users:       []string{"sap"},
-			Methods:     []string{"any"},
-			ContentType: []string{`application/vnd.kafka.binary.v1+json`, `application/vnd.kafka.binary.v2+json`},
-		},
-	}
-
-	auth_m, err := auth.NewAuth(&cfg.Auth)
-	if err != nil {
-		log.WithError(err).Fatalln("Can't init auth module")
-	}
-
-	router, err := createAuthRouter(auth_m)
+func createTestingAuthRouter(path string) *gin.Engine {
+	newRa, err := ra.NewRA(getEnv("RA_CONFIG_FILE", path))
 	if err != nil {
 		return nil
 	}
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.New()
+	router.Use(ginlogrus.Logger(), gin.Recovery())
 
+	router.Use(newRa.GetAuthMiddlerware())
+	router.GET("/auth", func(c *gin.Context) {
+		c.String(http.StatusOK, "Auth")
+	})
 	return router
+}
+
+func testGetAuthServer() *gin.Engine {
+	// cfg := new(config)
+	// cfg.Auth.Prefix = "/topics/"
+	// cfg.Auth.URLValidReg = `^\d{3}-0\.[a-z0-9-]+\.(db|cdc|cmd|sys|log|tmp)\.[a-z0-9-.]+\.\d+$`
+	// cfg.Auth.ContentTypeValidReg = `^(application/vnd.kafka.avro.v1+json)$`
+
+	// cfg.Auth.ACL = []auth.AclRule{
+	// 	{
+	// 		Path:        `000-0.+?`,
+	// 		Users:       []string{"sap"},
+	// 		Methods:     []string{"any"},
+	// 		ContentType: []string{`application/vnd.kafka.avro.v1+json`, `application/vnd.kafka.binary.v2+json`},
+	// 	},
+	// 	{
+	// 		Path:        `000-0.sap-erp\.+?`,
+	// 		Users:       []string{"sap"},
+	// 		Methods:     []string{"any"},
+	// 		ContentType: []string{`application/vnd.kafka.binary.v1+json`, `application/vnd.kafka.binary.v2+json`},
+	// 	},
+	// }
+
+	return createTestingAuthRouter("example/_test/auth_server_config.yml")
 }
 
 func testGetSRServer() *gin.Engine {
 	// Schema registry config
-	cfg := new(config)
-	cfg.Auth.SetDefauls()
+	// cfg := new(config)
 
-	cfg.Auth.ACL = []auth.ACLCfg{
-		{
-			Path:        `.*`,
-			Users:       []string{"any"},
-			Methods:     []string{"GET"},
-			ContentType: []string{"any"},
-		},
-	}
+	// cfg.Auth.ACL = []auth.AclRule{
+	// 	{
+	// 		Path:        `.*`,
+	// 		Users:       []string{"any"},
+	// 		Methods:     []string{"GET"},
+	// 		ContentType: []string{"any"},
+	// 	},
+	// }
 
-	auth_m, err := auth.NewAuth(&cfg.Auth)
-	if err != nil {
-		log.WithError(err).Fatalln("Can't init auth module")
-	}
-
-	router, err := createAuthRouter(auth_m)
-	if err != nil {
-		return nil
-	}
-
-	return router
+	return createTestingAuthRouter("example/_test/sr_server_config.yml")
 }
