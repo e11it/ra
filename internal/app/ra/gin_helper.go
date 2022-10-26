@@ -2,6 +2,7 @@ package ra
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/e11it/ra/pkg/auth"
 	"github.com/gin-gonic/gin"
@@ -10,7 +11,8 @@ import (
 // Создает объект auth.AuthRequest из git.Context
 func (ra *Ra) GetAuthRequest(c *gin.Context) (authRequest *auth.AuthRequest) {
 	authRequest = new(auth.AuthRequest)
-	authRequest.AuthURL = c.GetHeader(ra.config.Headers.AuthURL)
+	// Не очень удачное место для обрезания URL
+	authRequest.AuthURL = strings.TrimPrefix(c.GetHeader(ra.config.Headers.AuthURL), ra.config.TrimUrlPrefix)
 	authRequest.ContentType = c.ContentType()
 	authRequest.IP = c.GetHeader(ra.config.Headers.IP)
 	authRequest.Method = c.GetHeader(ra.config.Headers.Method)
