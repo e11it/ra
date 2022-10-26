@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1666363027089,
+  "lastUpdate": 1666789617532,
   "repoUrl": "https://github.com/e11it/ra",
   "entries": {
     "Go Benchmark": [
@@ -90,6 +90,36 @@ window.BENCHMARK_DATA = {
             "value": 14142,
             "unit": "ns/op\t    4829 B/op\t      56 allocs/op",
             "extra": "85063 times\n2 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "im@e11it.ru",
+            "name": "e11it",
+            "username": "e11it"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b145a931f191a3067415954ae68e818fa36810ff",
+          "message": "Merge pull request #4 from e11it/refactoring\n\nRefactoring",
+          "timestamp": "2022-10-26T16:06:17+03:00",
+          "tree_id": "a85c58def4f797ca5c68e5c62f72ddf0007e9f6c",
+          "url": "https://github.com/e11it/ra/commit/b145a931f191a3067415954ae68e818fa36810ff"
+        },
+        "date": 1666789616406,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkAuthRequest",
+            "value": 11791,
+            "unit": "ns/op\t    3521 B/op\t      31 allocs/op",
+            "extra": "103954 times\n2 procs"
           }
         ]
       }
