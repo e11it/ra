@@ -1,6 +1,6 @@
 module github.com/e11it/ra
 
-go 1.18
+go 1.19
 
 require (
 	github.com/gin-gonic/gin v1.8.1
@@ -8,7 +8,7 @@ require (
 	github.com/hashicorp/vault/api v1.0.4
 	github.com/jinzhu/configor v1.2.1
 	github.com/sirupsen/logrus v1.9.0
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.8.1
 )
 
 require (

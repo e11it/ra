@@ -1,6 +1,3 @@
-//go:build go1.8
-// +build go1.8
-
 package main
 
 import (
@@ -11,16 +8,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/e11it/ra/auth"
-	"github.com/e11it/ra/checksum"
 	ginlogrus "github.com/e11it/ra/ginlogrus"
+	"github.com/e11it/ra/internal/app/ra"
+	"github.com/e11it/ra/pkg/auth"
 	"github.com/gin-gonic/gin"
-	"github.com/jinzhu/configor"
 
 	log "github.com/sirupsen/logrus"
 )
-
-const path string = "example/config.yml"
 
 type config struct {
 	APPName  string `default:"app name"`
@@ -58,47 +52,23 @@ func createAuthRouter(auth_m Authorizer) (*gin.Engine, error) {
 	return router, nil
 }
 
-func loadConfig(cfg *config) {
-	if err := configor.New(&configor.Config{Verbose: false}).Load(cfg, path); err != nil {
-		log.WithError(err).Fatalln("can't parse config")
-	}
-	log.Infoln("load config")
-}
-
-func updateConfig(cfg *config, cs SumChecker) {
-	if cs.CompareCheckSum(path) {
-		log.Warningln("config is the same")
-		return
-	}
-	loadConfig(cfg)
-}
-
 func main() {
-	// Log as JSON instead of the default ASCII formatter.
-
-	Config := new(config)
-
-	os.Setenv("CONFIGOR_ENV_PREFIX", "RA")
-
-	cs, err := checksum.NewChecksum(path)
+	ra, err := ra.NewRA(getEnv("RA_CONFIG_FILE", "config.yml"))
 	if err != nil {
-		log.WithError(err).Fatalln("can't get checksum module")
+		log.Fatalln(err)
 	}
-	loadConfig(Config)
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.New()
+	router.Use(ginlogrus.Logger(), gin.Recovery())
+	// router.Use(helpers.DebugLogger())
 
-	auth_m, err := auth.NewAuth(&Config.Auth)
-	if err != nil {
-		log.WithError(err).Fatalln("can't init auth module")
-	}
-
-	// method | path | user
-	router, err := createAuthRouter(auth_m)
-	if err != nil {
-		log.Fatalf("error create auth: %s\n", err.Error())
-	}
+	router.Use(ra.GetAuthMiddlerware())
+	router.GET("/auth", func(c *gin.Context) {
+		c.String(http.StatusOK, "Auth")
+	})
 
 	srv := &http.Server{
-		Addr:    Config.Addr,
+		Addr:    ra.GetServerAddr(),
 		Handler: router,
 	}
 
@@ -124,14 +94,19 @@ func main() {
 		}
 		switch s {
 		case syscall.SIGHUP:
+			// TODO: перегрузка конфига
+			ra.ReloadHandler()
+
+			/* REMOVE
 			updateConfig(Config, cs)
 			auth_m.UpdateAuth(&Config.Auth)
+			*/
 		case syscall.SIGINT, syscall.SIGTERM:
 			log.Println("shuting down server...")
 
 			// The context is used to inform the server it has 5 seconds to finish
 			// the request it is currently handling
-			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(Config.ShutdownTimeout)*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(ra.GetShutdownTimeout())*time.Second)
 			defer cancel()
 			if err := srv.Shutdown(ctx); err != nil {
 				log.Println("server forced to shutdown:", err)
@@ -141,5 +116,12 @@ func main() {
 			return
 		}
 	}
+}
 
+func getEnv(key, fallback string) string {
+	value, exists := os.LookupEnv(key)
+	if !exists {
+		value = fallback
+	}
+	return value
 }
