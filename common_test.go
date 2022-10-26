@@ -32,7 +32,7 @@ func testMiddlewareRequest(t *testing.T, r *gin.Engine, expectedHTTPCode int) {
 }
 
 func createTestingAuthRouter(path string) *gin.Engine {
-	newRa, err := ra.NewRA(getEnv("RA_CONFIG_FILE", path))
+	newRa, err := ra.NewRA(path)
 	if err != nil {
 		return nil
 	}

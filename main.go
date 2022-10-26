@@ -59,8 +59,15 @@ func main() {
 	router.Use(ginlogrus.Logger(), gin.Recovery())
 	// router.Use(helpers.DebugLogger())
 
-	router.Use(ra.GetAuthMiddlerware())
-	router.GET("/auth", func(c *gin.Context) {
+	router.GET("/auth", ra.GetAuthMiddlerware(), func(c *gin.Context) {
+		c.String(http.StatusOK, "Auth")
+	})
+
+	router.GET("/reload", func(c *gin.Context) {
+		if err := ra.ReloadHandler(); err != nil {
+			c.String(http.StatusBadRequest, err.Error())
+			return
+		}
 		c.String(http.StatusOK, "Auth")
 	})
 

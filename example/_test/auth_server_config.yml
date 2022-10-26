@@ -1,5 +1,5 @@
+trimurlprefix: /topics/
 auth:
-  prefix: /topics/
   urlvalidreg: ^\d{3}-0\.[a-z0-9-]+\.(db|cdc|cmd|sys|log|tmp)\.[a-z0-9-.]+\.\d+$
   acl:
   - path: 000-0.+?
