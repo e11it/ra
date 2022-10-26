@@ -1,0 +1,20 @@
+auth:
+  prefix: /topics/
+  urlvalidreg: ^\d{3}-0\.[a-z0-9-]+\.(db|cdc|cmd|sys|log|tmp)\.[a-z0-9-.]+\.\d+$
+  acl:
+  - path: 000-0.+?
+    users:
+    - sap
+    methods:
+    - any
+    contenttype:
+    - application/vnd.kafka.avro.v1+json
+    - application/vnd.kafka.binary.v2+json
+  - path: 000-0.sap-erp\.+?
+    users:
+    - sap
+    methods:
+    - any
+    contenttype:
+    - application/vnd.kafka.binary.v1+json
+    - application/vnd.kafka.binary.v2+json

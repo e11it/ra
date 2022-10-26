@@ -1,0 +1,9 @@
+auth:
+  acl:
+  - path: .*
+    users:
+    - any
+    methods:
+    - GET
+    contenttype:
+    - any

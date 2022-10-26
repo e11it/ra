@@ -24,7 +24,7 @@ func NewAclWichCache(config *auth.Config, cacheSize int) (auth.AccessController,
 
 func (a *AccessControllerWithCache) Validate(authRequest *auth.AuthRequest) error {
 	// TODO: проверить, что сам объект попал в кеш
-	if err, ok := a.cache.Get(&authRequest); ok {
+	if err, ok := a.cache.Get(*authRequest); ok {
 		if err == nil {
 			return nil
 		}
@@ -32,7 +32,7 @@ func (a *AccessControllerWithCache) Validate(authRequest *auth.AuthRequest) erro
 	}
 
 	err := a.accessController.Validate(authRequest)
-	a.cache.Add(&authRequest, err)
+	a.cache.Add(*authRequest, err)
 
 	return err
 }

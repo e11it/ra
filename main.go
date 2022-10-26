@@ -26,17 +26,14 @@ type config struct {
 	ShutdownTimeout uint `default:"5"`
 }
 
-type Authorizer interface {
-	GetMiddleware() gin.HandlerFunc
-}
-
-type SumChecker interface {
-	CompareCheckSum(newPath string) (ok bool)
-}
-
 func init() {
 	// log.SetFormatter(&log.JSONFormatter{})
 	log.SetLevel(log.DebugLevel)
+}
+
+/* TODO: REMOVE
+type Authorizer interface {
+	GetMiddleware() gin.HandlerFunc
 }
 
 func createAuthRouter(auth_m Authorizer) (*gin.Engine, error) {
@@ -50,7 +47,7 @@ func createAuthRouter(auth_m Authorizer) (*gin.Engine, error) {
 		c.String(http.StatusOK, "Auth")
 	})
 	return router, nil
-}
+}*/
 
 func main() {
 	ra, err := ra.NewRA(getEnv("RA_CONFIG_FILE", "config.yml"))
