@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	ginlogrus "github.com/e11it/ra/ginlogrus"
 	"github.com/e11it/ra/internal/app/ra"
 	"github.com/gin-gonic/gin"
 )
@@ -38,7 +37,7 @@ func createTestingAuthRouter(path string) *gin.Engine {
 	}
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
-	router.Use(ginlogrus.Logger(), gin.Recovery())
+	router.Use(gin.Recovery())
 
 	router.Use(newRa.GetAuthMiddlerware())
 	router.GET("/auth", func(c *gin.Context) {

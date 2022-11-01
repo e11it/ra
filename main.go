@@ -10,21 +10,10 @@ import (
 
 	ginlogrus "github.com/e11it/ra/ginlogrus"
 	"github.com/e11it/ra/internal/app/ra"
-	"github.com/e11it/ra/pkg/auth"
 	"github.com/gin-gonic/gin"
 
 	log "github.com/sirupsen/logrus"
 )
-
-type config struct {
-	APPName  string `default:"app name"`
-	Addr     string `default:":8080"`
-	LogLevel string `default:""`
-
-	Auth auth.Config
-
-	ShutdownTimeout uint `default:"5"`
-}
 
 func init() {
 	// log.SetFormatter(&log.JSONFormatter{})
@@ -56,10 +45,10 @@ func main() {
 	}
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
-	router.Use(ginlogrus.Logger(), gin.Recovery())
+	router.Use(gin.Recovery())
 	// router.Use(helpers.DebugLogger())
 
-	router.GET("/auth", ra.GetAuthMiddlerware(), func(c *gin.Context) {
+	router.GET("/auth", ginlogrus.Logger(), ra.GetAuthMiddlerware(), func(c *gin.Context) {
 		c.String(http.StatusOK, "Auth")
 	})
 
@@ -68,7 +57,7 @@ func main() {
 			c.String(http.StatusBadRequest, err.Error())
 			return
 		}
-		c.String(http.StatusOK, "Auth")
+		c.String(http.StatusOK, "Reload")
 	})
 
 	srv := &http.Server{
