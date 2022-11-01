@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1666791320865,
+  "lastUpdate": 1667298212783,
   "repoUrl": "https://github.com/e11it/ra",
   "entries": {
     "Go Benchmark": [
@@ -150,6 +150,36 @@ window.BENCHMARK_DATA = {
             "value": 8961,
             "unit": "ns/op\t    3534 B/op\t      31 allocs/op",
             "extra": "1329483 times\n2 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "im@e11it.ru",
+            "name": "e11it",
+            "username": "e11it"
+          },
+          "committer": {
+            "email": "im@e11it.ru",
+            "name": "e11it",
+            "username": "e11it"
+          },
+          "distinct": true,
+          "id": "8d930c47c6c664e2cf8b962779f80ba9e09412f0",
+          "message": "add fiber remove logs",
+          "timestamp": "2022-11-01T13:22:38+03:00",
+          "tree_id": "5ea65ed1b1e715dfebcfa9419d45674ac852fe24",
+          "url": "https://github.com/e11it/ra/commit/8d930c47c6c664e2cf8b962779f80ba9e09412f0"
+        },
+        "date": 1667298212342,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkAuthRequest",
+            "value": 879.3,
+            "unit": "ns/op\t     249 B/op\t       4 allocs/op",
+            "extra": "12897106 times\n2 procs"
           }
         ]
       }
