@@ -18,3 +18,10 @@ auth:
     contenttype:
     - application/vnd.kafka.binary.v1+json
     - application/vnd.kafka.binary.v2+json
+  - path: 000-0\.iba\.db\.notify\.+?
+    users:
+    - any
+    methods:
+    - any
+    contenttype:
+    - any

@@ -1,0 +1,4 @@
+version: '2'
+services:
+  yandex-tank:
+    image: direvius/yandex-tank:latest

@@ -32,7 +32,8 @@ func (ra *Ra) GetAuthMiddlerware() gin.HandlerFunc {
 		authRequest := ra.GetAuthRequest(c)
 		err := ra.auth.Validate(authRequest)
 		if err != nil {
-			c.AbortWithError(http.StatusForbidden, err)
+			c.Header("X-RA-ERROR", err.Error())
+			_ = c.AbortWithError(http.StatusForbidden, err)
 		}
 		c.Next()
 	}

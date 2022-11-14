@@ -87,9 +87,10 @@ func (a *SimpleAccessController) getACLVerifier(acl []aclRuleCompilded) authChec
 			for _, acl := range acl {
 				if acl.IsMatch(authRequest.AuthURL) {
 					err = acl.IsAllow(authRequest.AuthUser, authRequest.Method, authRequest.ContentType)
-					if err == nil {
-						return nil // allow
+					if err != nil {
+						return err
 					}
+					return nil // allow
 				}
 			}
 

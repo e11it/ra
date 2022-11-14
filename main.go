@@ -8,7 +8,6 @@ import (
 	"syscall"
 	"time"
 
-	ginlogrus "github.com/e11it/ra/ginlogrus"
 	"github.com/e11it/ra/internal/app/ra"
 	"github.com/gin-gonic/gin"
 
@@ -48,7 +47,7 @@ func main() {
 	router.Use(gin.Recovery())
 	// router.Use(helpers.DebugLogger())
 
-	router.GET("/auth", ginlogrus.Logger(), ra.GetAuthMiddlerware(), func(c *gin.Context) {
+	router.GET("/auth", ra.GetAuthMiddlerware(), func(c *gin.Context) {
 		c.String(http.StatusOK, "Auth")
 	})
 
