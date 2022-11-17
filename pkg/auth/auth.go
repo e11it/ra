@@ -82,20 +82,21 @@ func (a *SimpleAccessController) getContentTypeValidReg(cfg *Config) authCheck {
 func (a *SimpleAccessController) getACLVerifier(acl []*aclRuleCompilded) authCheck {
 	if len(acl) > 0 {
 		return func(authRequest *AuthRequest) error {
-			var err error
+			var err, lastError error
 
-			for cnt := range acl {
-				aclEl := acl[len(acl)-1-cnt]
-				if aclEl.IsMatch(authRequest.AuthURL, authRequest.AuthUser, authRequest.Method) {
-					err = aclEl.IsAllow(authRequest.ContentType)
-					if err != nil {
-						return fmt.Errorf("%w [%d]", err, len(acl)-1-cnt)
+			lastError = fmt.Errorf("Permission denied")
+			for cnt, aclEl := range acl {
+				if aclEl.IsUrlMatch(authRequest.AuthURL) {
+					err = aclEl.IsAllow(authRequest.ContentType, authRequest.AuthUser, authRequest.Method)
+					if err == nil {
+						return nil // allow
 					}
-					return nil // allow
+					// save error and check next acl rules for success
+					lastError = fmt.Errorf("%w [%d]", err, cnt)
 				}
 			}
 
-			return fmt.Errorf("Permission denied")
+			return lastError
 		}
 	}
 	return nil
