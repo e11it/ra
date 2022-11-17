@@ -40,7 +40,7 @@ func (a *SimpleAccessController) makeChecks(cfg *Config) {
 	// Last
 	// a.addCheck(a.getContentTypeValidReg(cfg))
 	acl := cfg.getAclRulesCompiled()
-	a.addCheck(a.getACLVerifier(*acl))
+	a.addCheck(a.getACLVerifier(acl))
 }
 
 func (a *SimpleAccessController) Validate(authRequest *AuthRequest) error {
@@ -54,10 +54,10 @@ func (a *SimpleAccessController) Validate(authRequest *AuthRequest) error {
 
 func (a *SimpleAccessController) getURLValidReg(cfg *Config) authCheck {
 	if len(cfg.URLValidReg) > 0 {
-		url_reg := regexp.MustCompile(cfg.URLValidReg)
+		urlRe := regexp.MustCompile(cfg.URLValidReg)
 
 		return func(authRequest *AuthRequest) error {
-			if !url_reg.MatchString(authRequest.AuthURL) {
+			if !urlRe.MatchString(authRequest.AuthURL) {
 				return fmt.Errorf("Incorrect URL")
 			}
 			return nil
@@ -68,9 +68,9 @@ func (a *SimpleAccessController) getURLValidReg(cfg *Config) authCheck {
 
 func (a *SimpleAccessController) getContentTypeValidReg(cfg *Config) authCheck {
 	if len(cfg.ContentTypeValidReg) > 0 {
-		ct_reg := regexp.MustCompile(cfg.ContentTypeValidReg)
+		ctRe := regexp.MustCompile(cfg.ContentTypeValidReg)
 		return func(authRequest *AuthRequest) error {
-			if !ct_reg.MatchString(authRequest.ContentType) {
+			if !ctRe.MatchString(authRequest.ContentType) {
 				return fmt.Errorf("Incorrect Content-Type")
 			}
 			return nil
@@ -79,7 +79,7 @@ func (a *SimpleAccessController) getContentTypeValidReg(cfg *Config) authCheck {
 	return nil
 }
 
-func (a *SimpleAccessController) getACLVerifier(acl []aclRuleCompilded) authCheck {
+func (a *SimpleAccessController) getACLVerifier(acl []*aclRuleCompilded) authCheck {
 	if len(acl) > 0 {
 		return func(authRequest *AuthRequest) error {
 			var err error
@@ -89,7 +89,7 @@ func (a *SimpleAccessController) getACLVerifier(acl []aclRuleCompilded) authChec
 				if aclEl.IsMatch(authRequest.AuthURL, authRequest.AuthUser, authRequest.Method) {
 					err = aclEl.IsAllow(authRequest.ContentType)
 					if err != nil {
-						return fmt.Errorf("%w [%d]", err, cnt)
+						return fmt.Errorf("%w [%d]", err, len(acl)-1-cnt)
 					}
 					return nil // allow
 				}
