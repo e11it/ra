@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1667298212783,
+  "lastUpdate": 1668705365101,
   "repoUrl": "https://github.com/e11it/ra",
   "entries": {
     "Go Benchmark": [
@@ -180,6 +180,36 @@ window.BENCHMARK_DATA = {
             "value": 879.3,
             "unit": "ns/op\t     249 B/op\t       4 allocs/op",
             "extra": "12897106 times\n2 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "im@e11it.ru",
+            "name": "e11it",
+            "username": "e11it"
+          },
+          "committer": {
+            "email": "im@e11it.ru",
+            "name": "e11it",
+            "username": "e11it"
+          },
+          "distinct": true,
+          "id": "ba103d43de0bb136733e50961c3fc1160d5f0d71",
+          "message": "add username and method to match check",
+          "timestamp": "2022-11-17T20:14:57+03:00",
+          "tree_id": "ee6ffab0b465acb1412bacd3c7d40188c2cd7623",
+          "url": "https://github.com/e11it/ra/commit/ba103d43de0bb136733e50961c3fc1160d5f0d71"
+        },
+        "date": 1668705363931,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkAuthRequest",
+            "value": 1070,
+            "unit": "ns/op\t     259 B/op\t       4 allocs/op",
+            "extra": "10492459 times\n2 procs"
           }
         ]
       }
