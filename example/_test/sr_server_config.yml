@@ -1,9 +1,32 @@
+---
 auth:
   acl:
-  - path: .*
+  - path: ^/subjects/000-0\.[a-z0-9-]+\.(db|cdc|cmd|sys|log|tmp)\.[a-z0-9-.]+\.\d+-(key|value).*$
+    users:
+    - sre-sr-manager
+    methods:
+    - post
+    contenttype:
+    - any
+  - path: ^/compatibility/subjects/000-0\.[a-z0-9-]+\.(db|cdc|cmd|sys|log|tmp)\.[a-z0-9-.]+\.\d+-(key|value).*$
+    users:
+    - any
+    methods:
+    - post
+    contenttype:
+    - any
+  - path: ^/subjects/000-0-\d{3}-\d+\.[a-z0-9-]+\.(db|cdc|cmd|sys|log|tmp)\.[a-z0-9-.]+\.\d+-(key|value).*$
+    users:
+    - sre-kreplication
+    methods:
+    - post
+    contenttype:
+    - any
+  - path: .?
     users:
     - any
     methods:
     - GET
     contenttype:
     - any
+...

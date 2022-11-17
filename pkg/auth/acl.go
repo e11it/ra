@@ -52,19 +52,20 @@ func arrayToMap(in []string) (rez map[string]bool, any bool) {
 	return
 }
 
-func (ac *aclRuleCompilded) IsMatch(url string) bool {
-	return ac.Path.MatchString(url)
+func (ac *aclRuleCompilded) IsMatch(url, username, method string) bool {
+	if !ac.Path.MatchString(url) {
+		return false
+	}
+	if _, ok := ac.Users[username]; !ok && !ac.AnyUsers {
+		return false
+	}
+	if _, ok := ac.Methods[strings.ToLower(method)]; !ok && !ac.AnyMethods {
+		return false
+	}
+	return true
 }
 
-func (ac *aclRuleCompilded) IsAllow(user, method, content_type string) error {
-	if _, ok := ac.Users[user]; !ok && !ac.AnyUsers {
-		return fmt.Errorf("User not allowed")
-	}
-
-	if _, ok := ac.Methods[strings.ToLower(method)]; !ok && !ac.AnyMethods {
-		return fmt.Errorf("Method not allowed")
-	}
-
+func (ac *aclRuleCompilded) IsAllow(content_type string) error {
 	if _, ok := ac.ContentType[strings.ToLower(content_type)]; !ok && !ac.AnyContentType {
 		return fmt.Errorf("Content-Type not allowed")
 	}

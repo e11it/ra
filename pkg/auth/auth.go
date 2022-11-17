@@ -84,11 +84,12 @@ func (a *SimpleAccessController) getACLVerifier(acl []aclRuleCompilded) authChec
 		return func(authRequest *AuthRequest) error {
 			var err error
 
-			for _, acl := range acl {
-				if acl.IsMatch(authRequest.AuthURL) {
-					err = acl.IsAllow(authRequest.AuthUser, authRequest.Method, authRequest.ContentType)
+			for cnt := range acl {
+				aclEl := acl[len(acl)-1-cnt]
+				if aclEl.IsMatch(authRequest.AuthURL, authRequest.AuthUser, authRequest.Method) {
+					err = aclEl.IsAllow(authRequest.ContentType)
 					if err != nil {
-						return err
+						return fmt.Errorf("%w [%d]", err, cnt)
 					}
 					return nil // allow
 				}
