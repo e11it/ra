@@ -10,5 +10,5 @@ type Config struct {
 		Method      string
 		URL         string
 	}
-	ACL []AclRule
+	ACL []ACLRule
 }

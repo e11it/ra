@@ -3,8 +3,9 @@ https://pkg.go.dev/github.com/hashicorp/golang-lru
 
 
 
-* Список acl проверяется снизу вверх(чтобы можно было дописывать правила в конец)
-* Отказ возвразается если совпаюает url, username, method
+* Список acl проверяется сверху вниз, пока не найдется успешное правило
+* если под url попадает несколько правил, то сработает первое успешное.
+* если под url удовлетворяет нескольк правил, но все 
 
 TODO:
 - Мониторинг. Промахи в кеше
@@ -29,3 +30,7 @@ auth:
     content_type:
     - sdfasdfasdf
 ```
+
+
+
+https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers#config-http-conn-man-headers-x-request-id

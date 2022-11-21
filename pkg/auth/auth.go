@@ -86,8 +86,11 @@ func (a *SimpleAccessController) getACLVerifier(acl []*aclRuleCompilded) authChe
 
 			lastError = fmt.Errorf("Permission denied")
 			for cnt, aclEl := range acl {
-				if aclEl.IsUrlMatch(authRequest.AuthURL) {
-					err = aclEl.IsAllow(authRequest.ContentType, authRequest.AuthUser, authRequest.Method)
+				if aclEl.IsURLMatch(authRequest.AuthURL) {
+					err = aclEl.IsAllow(
+						authRequest.ContentType,
+						authRequest.AuthUser,
+						authRequest.Method)
 					if err == nil {
 						return nil // allow
 					}

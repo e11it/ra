@@ -8,67 +8,59 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/e11it/ra/internal/app/ra"
-	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/e11it/ra/helpers"
+	RA "github.com/e11it/ra/internal/app/ra"
+	"github.com/gin-gonic/gin"
 )
 
 func init() {
 	// log.SetFormatter(&log.JSONFormatter{})
-	log.SetLevel(log.DebugLevel)
+	// log.SetLevel(log.DebugLevel)
 }
-
-/* TODO: REMOVE
-type Authorizer interface {
-	GetMiddleware() gin.HandlerFunc
-}
-
-func createAuthRouter(auth_m Authorizer) (*gin.Engine, error) {
-	gin.SetMode(gin.ReleaseMode)
-	router := gin.New()
-	router.Use(ginlogrus.Logger(), gin.Recovery())
-	// router.Use(helpers.DebugLogger())
-
-	router.Use(auth_m.GetMiddleware())
-	router.GET("/auth", func(c *gin.Context) {
-		c.String(http.StatusOK, "Auth")
-	})
-	return router, nil
-}*/
 
 func main() {
-	ra, err := ra.NewRA(getEnv("RA_CONFIG_FILE", "config.yml"))
+	ra, err := RA.NewRA(helpers.GetEnv("RA_CONFIG_FILE", "config.yml"))
 	if err != nil {
-		log.Fatalln(err)
+		log.Err(err)
 	}
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
 	// router.Use(helpers.DebugLogger())
 
-	router.GET("/auth", ra.GetAuthMiddlerware(), func(c *gin.Context) {
+	router.GET("/auth", ra.GetAuthMiddlerware(false), func(c *gin.Context) {
 		c.String(http.StatusOK, "Auth")
 	})
+
+	if ra.ProxyEnabled() {
+		router.Any("/topics/*proxyPath",
+			RA.GetUUIDMiddlerware(),
+			ra.GetAuthMiddlerware(true),
+			ra.GetProxyHandler())
+	}
 
 	router.GET("/reload", func(c *gin.Context) {
 		if err := ra.ReloadHandler(); err != nil {
 			c.String(http.StatusBadRequest, err.Error())
 			return
 		}
+		log.Info().Msg("config reloaded")
 		c.String(http.StatusOK, "Reload")
 	})
 
 	srv := &http.Server{
-		Addr:    ra.GetServerAddr(),
-		Handler: router,
+		Addr:              ra.GetServerAddr(),
+		Handler:           router,
+		ReadHeaderTimeout: 3 * time.Second,
 	}
-
+	log.Info().Msgf("Starting server on: %s", ra.GetServerAddr())
 	// Initializing the server in a goroutine so that
 	// it won't block the graceful shutdown handling below
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %s\n", err)
+			log.Fatal().Msgf("listen: %s\n", err)
 		}
 	}()
 
@@ -88,32 +80,19 @@ func main() {
 		case syscall.SIGHUP:
 			// TODO: перегрузка конфига
 			ra.ReloadHandler()
-
-			/* REMOVE
-			updateConfig(Config, cs)
-			auth_m.UpdateAuth(&Config.Auth)
-			*/
 		case syscall.SIGINT, syscall.SIGTERM:
-			log.Println("shuting down server...")
+			log.Info().Msg("shuting down server...")
 
 			// The context is used to inform the server it has 5 seconds to finish
 			// the request it is currently handling
 			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(ra.GetShutdownTimeout())*time.Second)
 			defer cancel()
 			if err := srv.Shutdown(ctx); err != nil {
-				log.Println("server forced to shutdown:", err)
+				log.Error().Msgf("server forced to shutdown: %s", err.Error())
 			}
 
-			log.Println("server exiting")
+			log.Info().Msg("server exiting")
 			return
 		}
 	}
-}
-
-func getEnv(key, fallback string) string {
-	value, exists := os.LookupEnv(key)
-	if !exists {
-		value = fallback
-	}
-	return value
 }

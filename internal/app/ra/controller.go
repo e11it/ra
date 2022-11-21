@@ -44,6 +44,10 @@ func (ra *Ra) GetServerAddr() string {
 	return ra.config.Addr
 }
 
+func (ra *Ra) ProxyEnabled() bool {
+	return ra.config.Proxy.Enabled
+}
+
 func (ra *Ra) GetShutdownTimeout() uint {
 	return ra.config.ShutdownTimeout
 }

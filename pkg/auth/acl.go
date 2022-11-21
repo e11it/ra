@@ -7,7 +7,7 @@ import (
 )
 
 // Правило
-type AclRule struct {
+type ACLRule struct {
 	Path        string
 	Users       []string
 	Methods     []string
@@ -52,7 +52,7 @@ func arrayToMap(in []string) (rez map[string]bool, any bool) {
 	return
 }
 
-func (ac *aclRuleCompilded) IsUrlMatch(url string) bool {
+func (ac *aclRuleCompilded) IsURLMatch(url string) bool {
 	return ac.Path.MatchString(url)
 }
 

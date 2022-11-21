@@ -34,7 +34,7 @@ docker-clean:
 
 ## go-build: build go application
 go-build: go-lint
-	@go build -o $(PROJECTNAME) .
+	@go build -tags=nomsgpack -o $(PROJECTNAME) .
 
 ## download: required go modules
 go-download:

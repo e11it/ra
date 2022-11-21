@@ -18,7 +18,12 @@ type Config struct {
 		Enabled   bool `default:"true"`
 		CacheSize int  `default:"1000"`
 	}
-	TrimUrlPrefix string
+
+	Proxy struct {
+		Enabled   bool `default:"false"`
+		ProxyHost string
+	}
+	TrimURLPrefix string
 
 	Auth auth.Config
 }

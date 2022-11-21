@@ -13,7 +13,7 @@ func (ra *Ra) GetFiberAuthRequest(c *fiber.Ctx) (authRequest *auth.AuthRequest) 
 	authRequest = new(auth.AuthRequest)
 
 	// Не очень удачное место для обрезания URL
-	authRequest.AuthURL = strings.TrimPrefix(c.Get(ra.config.Headers.AuthURL), ra.config.TrimUrlPrefix)
+	authRequest.AuthURL = strings.TrimPrefix(c.Get(ra.config.Headers.AuthURL), ra.config.TrimURLPrefix)
 	authRequest.ContentType = c.Get("Content-Type")
 	authRequest.IP = c.Get(ra.config.Headers.IP)
 	authRequest.Method = c.Get(ra.config.Headers.Method)

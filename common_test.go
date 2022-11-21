@@ -39,7 +39,7 @@ func createTestingAuthRouter(path string) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
 
-	router.Use(newRa.GetAuthMiddlerware())
+	router.Use(newRa.GetAuthMiddlerware(false))
 	router.GET("/auth", func(c *gin.Context) {
 		c.String(http.StatusOK, "Auth")
 	})
