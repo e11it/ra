@@ -49,7 +49,13 @@ func (ra *Ra) GetAuthMiddlerware(proxy bool) gin.HandlerFunc {
 		err := ra.auth.Validate(authRequest)
 		if err != nil {
 			c.Header("X-RA-ERROR", err.Error())
-			_ = c.AbortWithError(http.StatusForbidden, err)
+			if proxy {
+				// nginx auth_request module doesn't read response body
+				// add only when in proxy mode
+				c.String(http.StatusForbidden, fmt.Sprintf("error: %s", err))
+			}
+			c.AbortWithStatus(http.StatusForbidden)
+			return
 		}
 		c.Set("username", authRequest.AuthUser)
 		c.Next()
@@ -58,10 +64,15 @@ func (ra *Ra) GetAuthMiddlerware(proxy bool) gin.HandlerFunc {
 
 func GetUUIDMiddlerware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var rid string
 		// TODO: получить x-request-id от клиента
-		_uuid := uuid.Must(uuid.NewRandom())
-		c.Header("X-Request-ID", _uuid.String())
-		c.Set("x-request-id", _uuid.String())
+		rid = c.GetHeader("X-Request-ID")
+		if rid == "" {
+			rid = uuid.Must(uuid.NewRandom()).String()
+		}
+
+		c.Header("X-Request-ID", rid)
+		c.Set("x-request-id", rid)
 		c.Next()
 	}
 }

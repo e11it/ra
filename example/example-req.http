@@ -1,0 +1,25 @@
+#
+GET http://localhost:8085/auth HTTP/1.1
+Authorization: Basic avro-user:anypassword
+Content-Type: application/vnd.kafka.avro.v2+json
+X-Real-Ip: 10.48.5.59
+X-Original-Uri: /topics/888-8.example.db.awesome.0
+X-Original-Method: POST
+X-Service: kafka-rest
+
+###
+
+GET http://localhost:8085/auth HTTP/1.1
+Authorization: Basic avro-user:anypassword
+Content-Type: application/vnd.kafka.avro.v2+json
+X-Real-Ip: 10.48.5.59
+X-Original-Uri: /topics/888-8.example.db.awesome.0
+X-Original-Method: POST
+X-Service: kafka-rest
+X-Request-ID: 5f385ffc-2419-44cd-8ae5-322f0b3b6856
+
+###
+GET http://127.0.0.1:8085/reload
+
+###
+Authorization", "Basic c2FwOnNlQzIzc0JGanV0azg5TnY=")

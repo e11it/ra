@@ -73,20 +73,23 @@ func (ra *Ra) createAccessController(config *Config) (err error) {
 	return
 }
 
-func (ra *Ra) ReloadHandler() error {
+// Возращает флаг был ли перезагружен конфиг(или он не изменился)
+// и ошибку
+func (ra *Ra) ReloadHandler() (bool, error) {
 	var config *Config
 	isChanged, err := ra.cfgPath.IsConfigFileChanged()
 	if err != nil {
-		return err
+		return false, err
 	}
-	if isChanged {
-		if config, err = ra.loadConfig(); err != nil {
-			return err
-		}
-		if err = ra.createAccessController(config); err != nil {
-			return err
-		}
-		ra.config = config
+	if !isChanged {
+		return false, nil
 	}
-	return nil
+	if config, err = ra.loadConfig(); err != nil {
+		return false, err
+	}
+	if err := ra.createAccessController(config); err != nil {
+		return false, err
+	}
+	ra.config = config
+	return true, nil
 }

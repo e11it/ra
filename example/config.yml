@@ -2,9 +2,9 @@ trimurlprefix: /topics/
 auth:
   urlvalidreg: ^\d{3}-\d(-\d{3}-\d)?\.[a-z0-9-]+\.(db|cdc|cmd|sys|log|tmp)\.[a-z0-9-.]+\.\d+$
   acl:
-  - path: ^000-0\.sap-erp.*$
+  - path: ^888-8\.example.*$
     users:
-    - sap
+    - avro-user
     methods:
     - POST
     contenttype:

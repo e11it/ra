@@ -31,6 +31,16 @@ auth:
     - sdfasdfasdf
 ```
 
-
+Debug RA
+```
+curl -v \
+  -H "Content-Type: application/vnd.kafka.avro.v2+json" \
+  -H "X-Original-Uri: /topics/000-2.l3-allresponse-difference.0" \
+  -H "X-"
+  -H "X-Original-Method: POST" \
+  -H "Authorization: Basic bDMtb3JhLXB0czoxMjM="
+  http://ra:8080/auth
+```
+updater!!!
 
 https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers#config-http-conn-man-headers-x-request-id

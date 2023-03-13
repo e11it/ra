@@ -23,16 +23,20 @@ func init() {
 func main() {
 	ra, err := RA.NewRA(helpers.GetEnv("RA_CONFIG_FILE", "config.yml"))
 	if err != nil {
-		log.Err(err)
+		log.Err(err).Msg("config load error")
+		os.Exit(1)
 	}
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
 	// router.Use(helpers.DebugLogger())
 
-	router.GET("/auth", ra.GetAuthMiddlerware(false), func(c *gin.Context) {
-		c.String(http.StatusOK, "Auth")
-	})
+	router.GET("/auth",
+		RA.GetUUIDMiddlerware(),
+		ra.GetAuthMiddlerware(false),
+		func(c *gin.Context) {
+			c.String(http.StatusOK, "Auth")
+		})
 
 	if ra.ProxyEnabled() {
 		router.Any("/topics/*proxyPath",
@@ -42,12 +46,18 @@ func main() {
 	}
 
 	router.GET("/reload", func(c *gin.Context) {
-		if err := ra.ReloadHandler(); err != nil {
+		reloaded, err := ra.ReloadHandler()
+		if err != nil {
 			c.String(http.StatusBadRequest, err.Error())
 			return
 		}
-		log.Info().Msg("config reloaded")
-		c.String(http.StatusOK, "Reload")
+		if reloaded {
+			log.Info().Msg("config reloaded")
+			c.String(http.StatusOK, "Reload")
+		} else {
+			log.Info().Msg("config not changed")
+			c.String(http.StatusNotModified, "config not changed")
+		}
 	})
 
 	srv := &http.Server{

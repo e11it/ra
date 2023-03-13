@@ -13,8 +13,9 @@
 curl -u avro-user:anypassword -X POST \
       -H "Content-Type: application/vnd.kafka.avro.v2+json" \
       -H "Accept: application/vnd.kafka.v2+json" \
+      -H "X-Request-ID: 5f385ffc-2419-44cd-8ae5-322f0b3b6856" \
       --data '{"value_schema": "{\"type\": \"record\", \"name\": \"User\", \"fields\": [{\"name\": \"name\", \"type\": \"string\"}]}", "records": [{"value": {"name": "testUser"}}]}' \
-      "http://localhost:8080/topics/888-8.example.db.awesome.0
+      "http://localhost:8080/topics/888-8.example.db.awesome.0"
 ```
 
 Ответ:
@@ -45,4 +46,11 @@ curl -u avro-user:anypassword -X POST \
 ```
 example-ra-1                       | time="2022-05-17T17:41:31Z" level=error ContentType=application/vnd.kafka.avro.v2+json IP=172.21.0.1 Method=POST URL=888-8.wrong-group.db.awesome.0 User=avro-user error="Permission denied"
 example-ra-1                       | time="2022-05-17T17:41:31Z" level=error msg="Error #01: Permission denied\n" clientIP=172.21.0.1 dataLength=0 hostname=defe4e65fa9e latency=0.265606 method=GET path=/auth referer= statusCode=403 userAgent=curl/7.79.1
+```
+
+
+Reload `ra` config:
+
+```
+docker-compose kill -s SIGHUP ra
 ```
