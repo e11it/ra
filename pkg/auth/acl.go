@@ -30,8 +30,8 @@ func (c *Config) getAclRulesCompiled() []*aclRuleCompilded {
 		aRC := new(aclRuleCompilded)
 		aRC.Path = regexp.MustCompile(acl.Path)
 		aRC.Users, aRC.AnyUsers = arrayToMap(acl.Users)
-		aRC.Methods, aRC.AnyMethods = arrayToMap(acl.Methods)
-		aRC.ContentType, aRC.AnyContentType = arrayToMap(acl.ContentType)
+		aRC.Methods, aRC.AnyMethods = arrayToMapLower(acl.Methods)
+		aRC.ContentType, aRC.AnyContentType = arrayToMapLower(acl.ContentType)
 
 		aclList[id] = aRC
 	}
@@ -40,6 +40,19 @@ func (c *Config) getAclRulesCompiled() []*aclRuleCompilded {
 }
 
 func arrayToMap(in []string) (rez map[string]bool, any bool) {
+	any = false
+	rez = make(map[string]bool, len(in))
+
+	for _, key := range in {
+		rez[key] = true
+		if strings.EqualFold(key, "any") {
+			any = true
+		}
+	}
+	return
+}
+
+func arrayToMapLower(in []string) (rez map[string]bool, any bool) {
 	any = false
 	rez = make(map[string]bool, len(in))
 

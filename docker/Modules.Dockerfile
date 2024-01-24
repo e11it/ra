@@ -1,4 +1,4 @@
-ARG golang_version=latest
+ARG golang_version=1.21.6
 FROM golang:${golang_version} as origin
 WORKDIR /app
 COPY Makefile go.mod ./

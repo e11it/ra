@@ -10,6 +10,8 @@ https://pkg.go.dev/github.com/hashicorp/golang-lru
 TODO:
 - Мониторинг. Промахи в кеше
 
+- Bench: https://e11it.github.io/ra/dev/bench/
+
 config.yml
 ```
 auth:
@@ -34,13 +36,14 @@ auth:
 Debug RA
 ```
 curl -v \
+  -u kafka-enforce.prod.AstueStag@rest.kafka.prod:somepassword \
   -H "Content-Type: application/vnd.kafka.avro.v2+json" \
-  -H "X-Original-Uri: /topics/000-2.l3-allresponse-difference.0" \
-  -H "X-"
+  -H "X-Original-Uri: /topics/006-0.kafka-enforce.db.ts.stagdok.ec.energy-meter.0" \
   -H "X-Original-Method: POST" \
-  -H "Authorization: Basic bDMtb3JhLXB0czoxMjM="
   http://ra:8080/auth
 ```
+
+// -H "Authorization: Basic bDMtb3JhLXB0czoxMjM="
 updater!!!
 
 https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers#config-http-conn-man-headers-x-request-id

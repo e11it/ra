@@ -1,4 +1,4 @@
-ARG GOLANG_VERSION=latest
+ARG GOLANG_VERSION=1.21.6
 ARG APP_VERSION=latest
 ARG APP_IMAGE_DATE_CREATED
 ARG APP_COMMIT_SHA
@@ -12,7 +12,10 @@ COPY . .
 COPY --from=modules /app/bin/golangci-lint /app/bin/golangci-lint
 RUN PROJECTNAME=ra make go-build
 
-FROM gcr.io/distroless/base
+
+
+
+FROM gcr.io/distroless/base-debian12
 
 LABEL org.opencontainers.image.authors="ilya makarov" \
       org.opencontainers.image.created=${APP_IMAGE_DATE_CREATED} \

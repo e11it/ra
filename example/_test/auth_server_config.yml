@@ -26,4 +26,12 @@ auth:
     - any
     contenttype:
     - any
+  - path: 000-0\.capital\.+?
+    users:
+    - CapitalUserName
+    methods:
+    - any
+    contenttype:
+    - application/vnd.kafka.binary.v1+json
+    - application/vnd.kafka.binary.v2+json
 ...
