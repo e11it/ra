@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1678701326261,
+  "lastUpdate": 1776773917888,
   "repoUrl": "https://github.com/e11it/ra",
   "entries": {
     "Go Benchmark": [
@@ -330,6 +330,54 @@ window.BENCHMARK_DATA = {
             "value": 1483,
             "unit": "ns/op\t     630 B/op\t       7 allocs/op",
             "extra": "7664226 times\n2 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "makarov.tula@gmail.com",
+            "name": "e11it",
+            "username": "e11it"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "06b21316b878da70e171f7baf198bc8646b1ff92",
+          "message": "Update golang version",
+          "timestamp": "2026-04-21T15:17:22+03:00",
+          "tree_id": "b2ca50061bc906b451981826fc787e70794eec60",
+          "url": "https://github.com/e11it/ra/commit/06b21316b878da70e171f7baf198bc8646b1ff92"
+        },
+        "date": 1776773916996,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkAuthRequest",
+            "value": 947.9,
+            "unit": "ns/op\t     619 B/op\t       8 allocs/op",
+            "extra": "11226692 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkAuthRequest - ns/op",
+            "value": 947.9,
+            "unit": "ns/op",
+            "extra": "11226692 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkAuthRequest - B/op",
+            "value": 619,
+            "unit": "B/op",
+            "extra": "11226692 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkAuthRequest - allocs/op",
+            "value": 8,
+            "unit": "allocs/op",
+            "extra": "11226692 times\n4 procs"
           }
         ]
       }
