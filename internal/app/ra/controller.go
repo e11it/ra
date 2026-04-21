@@ -6,6 +6,7 @@ import (
 	"github.com/e11it/ra/pkg/auth"
 	"github.com/e11it/ra/pkg/auth/cache"
 	"github.com/e11it/ra/pkg/filepath"
+	"github.com/e11it/ra/pkg/kafkarest"
 
 	"github.com/jinzhu/configor"
 )
@@ -16,7 +17,8 @@ type Ra struct {
 	cfgPath *filepath.FileWithChecksum
 	config  *Config
 
-	auth auth.AccessController
+	auth          auth.AccessController
+	bodyValidator kafkarest.BodyValidator
 }
 
 func NewRA(configPath string) (*Ra, error) {
@@ -35,6 +37,9 @@ func NewRA(configPath string) (*Ra, error) {
 	}
 
 	if err = ra.createAccessController(ra.config); err != nil {
+		return nil, err
+	}
+	if ra.bodyValidator, err = kafkarest.NewValidatorFromConfig(ra.config.kafkaRestConfig()); err != nil {
 		return nil, err
 	}
 	return ra, nil
@@ -90,6 +95,17 @@ func (ra *Ra) ReloadHandler() (bool, error) {
 	if err := ra.createAccessController(config); err != nil {
 		return false, err
 	}
+	validator, err := kafkarest.NewValidatorFromConfig(config.kafkaRestConfig())
+	if err != nil {
+		return false, err
+	}
+	ra.bodyValidator = validator
 	ra.config = config
 	return true, nil
+}
+
+// BodyValidator возвращает активный валидатор тела (или nil, если он выключен
+// в конфигурации). Используется middleware-слоями (gin/fiber).
+func (ra *Ra) BodyValidator() kafkarest.BodyValidator {
+	return ra.bodyValidator
 }

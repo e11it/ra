@@ -1,0 +1,46 @@
+---
+description: Обзор проекта ra (Request Authenticator). Контекст, зависимости, точки входа.
+alwaysApply: true
+---
+
+# ra — Request Authenticator
+
+Сервис авторизации / прокси для nginx `auth_request` и кастомного proxy-пути перед Kafka REST Proxy (Confluent).
+
+## Ключевые факты
+
+- Язык: Go `1.26.2`, модуль `github.com/e11it/ra`.
+- Фреймворки HTTP:
+  - Gin — основная точка входа `main.go` (`auth_request` + proxy-режим `/topics/*proxyPath`).
+  - Fiber v2 — альтернативная точка входа `cmd/ra-fiber/main.go` (только `auth_request`).
+- Конфигурация: `github.com/jinzhu/configor` + YAML. Значения по умолчанию задаются тегами `default:"..."` на полях структуры.
+- Логирование: `github.com/rs/zerolog` — основной логгер. `logrus` остался только в тестах для подавления вывода и не используется в новом коде.
+- JSON: `github.com/bytedance/sonic` для hot-path (сериализация/декодирование в proxy-ветке и в валидаторе тела Kafka REST). `encoding/json` допустим в тестах и в конфигурации.
+- Кеш авторизации: `github.com/hashicorp/golang-lru` ARC-кеш.
+- Тесты: `github.com/stretchr/testify` + таблично-параметризованные `t.Run`.
+
+## Точки входа и модули
+
+- `main.go` — Gin HTTP server.
+- `cmd/ra-fiber/main.go` — Fiber HTTP server.
+- `internal/app/ra/` — склейка приложения: `controller.go` (конструктор `Ra`, загрузка/reload конфига), `config.go` (корневая конфигурация), `gin_helper.go`, `fiber_helper.go`.
+- `pkg/auth/` — публичный контракт авторизации (`AccessController`, `AuthRequest`) и ACL-реализация.
+- `pkg/auth/cache/` — обёртка `AccessController` с LRU-кешем.
+- `pkg/kafkarest/` — валидация тела Kafka REST v2 produce-запросов (корпстандарт Avro).
+- `pkg/filepath/` — утилита отслеживания изменений файла конфига по чек-сумме.
+
+## Верификация после правок
+
+После любых правок кода:
+
+```bash
+go vet ./...
+go test ./...
+go build ./...
+```
+
+Все три команды должны завершаться успехом. Docker-образы используют `golang:1.26.2` (см. `docker/*.Dockerfile`), не снижайте версию Go без согласования.
+
+## Документы, на которые опирается код
+
+- `docs/Корпоративный стандарт сообщений Kafka на базе Avro.md` — источник правды для схемы envelope, правил `entityKey ↔ Kafka.key`, каталога операций, tombstone-сценариев.
