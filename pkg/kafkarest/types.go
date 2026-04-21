@@ -41,8 +41,9 @@ type envelopeWrapper struct {
 // Необязательные поля (businessKey, businessDate и т.п.) не парсим, чтобы не
 // зависеть от формы union'ов в Avro JSON encoding.
 type EventMeta struct {
-	EntityKey string `json:"entityKey"`
-	Operation string `json:"operation"`
+	EntityKey     string `json:"entityKey"`
+	Operation     string `json:"operation"`
+	EventTimeZone string `json:"eventTimeZone"`
 }
 
 // CheckContext — контекст выполнения одной проверки.

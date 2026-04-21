@@ -155,7 +155,7 @@ func TestBodyValidation_ValidAvroBatch(t *testing.T) {
 	assert.NotNilf(t, router, "Error init router")
 
 	body := `{"records": [
-		{"key": "554123", "value": {"envelope": {"meta": {"entityKey": "554123", "operation": "UPDATE"}}}},
+		{"key": "554123", "value": {"envelope": {"meta": {"entityKey": "554123", "operation": "UPDATE", "eventTimeZone": "Europe/Moscow"}}}},
 		{"key": "554123", "value": null}
 	]}`
 
@@ -174,7 +174,7 @@ func TestBodyValidation_EntityKeyMismatch(t *testing.T) {
 	assert.NotNilf(t, router, "Error init router")
 
 	body := `{"records": [
-		{"key": "A", "value": {"envelope": {"meta": {"entityKey": "B", "operation": "UPDATE"}}}}
+		{"key": "A", "value": {"envelope": {"meta": {"entityKey": "B", "operation": "UPDATE", "eventTimeZone": "Europe/Moscow"}}}}
 	]}`
 
 	w := httptest.NewRecorder()
@@ -193,7 +193,7 @@ func TestBodyValidation_OperationNotAllowed(t *testing.T) {
 	assert.NotNilf(t, router, "Error init router")
 
 	body := `{"records": [
-		{"key": "k", "value": {"envelope": {"meta": {"entityKey": "k", "operation": "WEIRD"}}}}
+		{"key": "k", "value": {"envelope": {"meta": {"entityKey": "k", "operation": "WEIRD", "eventTimeZone": "Europe/Moscow"}}}}
 	]}`
 
 	w := httptest.NewRecorder()
@@ -235,6 +235,25 @@ func TestBodyValidation_GetRequestNotValidated(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code,
 		"body validation применяется только к POST — GET должен пройти мимо")
+}
+
+func TestBodyValidation_InvalidTimeZone(t *testing.T) {
+	router := testGetBodyValidationServer()
+	assert.NotNilf(t, router, "Error init router")
+
+	body := `{"records": [
+		{"key": "k", "value": {"envelope": {"meta": {"entityKey": "k", "operation": "UPDATE", "eventTimeZone": "+03:00"}}}}
+	]}`
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/auth", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/vnd.kafka.avro.v2+json")
+	req.Header.Set("X-Original-Uri", "/topics/888-8.example.db.awesome.0")
+	req.Header.Set("X-Original-Method", "POST")
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Header().Get("X-RA-ERROR"), "event_time_zone_valid")
 }
 
 func BenchmarkFiber(b *testing.B) {

@@ -16,8 +16,9 @@ alwaysApply: false
 1. **`Kafka.key == UTF-8(envelope.meta.entityKey)`** — проверяется на ingress-gateway. При несоответствии → HTTP `400 Bad Request`.
 2. **Каталог `operation`**: `CREATE`, `UPDATE`, `UPSERT`, `DELETE`, `SNAPSHOT`, `EVENT`. Любые другие значения — отказ.
 3. Для `operation == "EVENT"` допустимо пустое значение `entityKey`.
-4. **Tombstone** — валидный сценарий для compacted-топиков: `{"key": "<entityKey>", "value": null}`. У такой записи нет envelope — её нельзя прогонять через чекеры, проверяющие `meta.*`. Валидатор обязан определять tombstone (по `value: null` / отсутствию value) и пропускать запись без ошибок.
-5. Чекеры должны быть независимыми и компонуемыми. Новый чекер — это тип, реализующий `pkg/kafkarest.RecordChecker`, регистрируемый в `pkg/kafkarest/registry.go`.
+4. **`envelope.meta.eventTimeZone` обязателен** и должен быть строкой в формате IANA id (`Europe/Moscow`, `UTC`, `Asia/Yekaterinburg`). Смещения (`+03:00`), аббревиатуры (`MSK`) и пустое значение запрещены.
+5. **Tombstone** — валидный сценарий для compacted-топиков: `{"key": "<entityKey>", "value": null}`. У такой записи нет envelope — её нельзя прогонять через чекеры, проверяющие `meta.*`. Валидатор обязан определять tombstone (по `value: null` / отсутствию value) и пропускать запись без ошибок.
+6. Чекеры должны быть независимыми и компонуемыми. Новый чекер — это тип, реализующий `pkg/kafkarest.RecordChecker`, регистрируемый в `pkg/kafkarest/registry.go`.
 
 ## Формат REST v2 produce-запроса
 
@@ -45,5 +46,6 @@ alwaysApply: false
   - отсутствие `envelope.meta` или его required-полей.
   - `entityKey != key` (кроме случая `operation=EVENT` и обеих пустых/отсутствующих сторон).
   - `operation` не из каталога.
+  - отсутствие или невалидный `eventTimeZone` (не IANA id).
 
 Сообщение об ошибке должно указывать номер записи (`records[i]`) и имя чекера.

@@ -13,4 +13,4 @@ auth:
 body_validation:
   enabled: true
   allowed_operations: [CREATE, UPDATE, UPSERT, DELETE, SNAPSHOT, EVENT]
-  checks: [entity_key_match, operation_allowed]
+  checks: [entity_key_match, operation_allowed, event_time_zone_valid]

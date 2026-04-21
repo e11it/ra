@@ -51,13 +51,14 @@ curl -v \
 body_validation:
   enabled: true
   allowed_operations: [CREATE, UPDATE, UPSERT, DELETE, SNAPSHOT, EVENT]
-  checks: [entity_key_match, operation_allowed]
+  checks: [entity_key_match, operation_allowed, event_time_zone_valid]
 ```
 
 Встроенные чекеры:
 
 - `entity_key_match` — проверяет `records[i].key == envelope.meta.entityKey`. Для `operation=EVENT` допускается пустое `entityKey` и отсутствие `key`.
 - `operation_allowed` — проверяет, что `envelope.meta.operation` входит в `allowed_operations`.
+- `event_time_zone_valid` — проверяет, что `envelope.meta.eventTimeZone` задан и является корректным IANA id (например, `Europe/Moscow`, `UTC`). Смещения (`+03:00`) и аббревиатуры (`MSK`) запрещены.
 
 Tombstone-записи (`{"key": "...", "value": null}`) распознаются автоматически и пропускаются без чекеров — по стандарту у них нет envelope.
 

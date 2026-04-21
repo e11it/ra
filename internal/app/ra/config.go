@@ -35,7 +35,7 @@ type Config struct {
 	BodyValidation struct {
 		Enabled           bool     `yaml:"enabled" default:"false"`
 		AllowedOperations []string `yaml:"allowed_operations" default:"[CREATE,UPDATE,UPSERT,DELETE,SNAPSHOT,EVENT]"`
-		Checks            []string `yaml:"checks" default:"[entity_key_match,operation_allowed]"`
+		Checks            []string `yaml:"checks" default:"[entity_key_match,operation_allowed,event_time_zone_valid]"`
 	} `yaml:"body_validation"`
 }
 

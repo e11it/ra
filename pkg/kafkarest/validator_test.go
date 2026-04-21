@@ -13,7 +13,7 @@ func defaultConfig() Config {
 	return Config{
 		Enabled:           true,
 		AllowedOperations: defaultAllowedOperations,
-		Checks:            []string{entityKeyMatchCheckName, operationAllowedCheckName},
+		Checks:            []string{entityKeyMatchCheckName, operationAllowedCheckName, eventTimeZoneValidCheckName},
 	}
 }
 
@@ -53,9 +53,9 @@ func TestValidator_ValidBatch(t *testing.T) {
 	body := []byte(`{
 		"value_schema_id": 16,
 		"records": [
-			{"key": "554123", "value": {"envelope": {"meta": {"entityKey": "554123", "operation": "UPDATE"}}}},
-			{"key": "evt-1", "value": {"envelope": {"meta": {"entityKey": "evt-1", "operation": "EVENT"}}}},
-			{"key": "x", "value": {"envelope": {"meta": {"entityKey": "x", "operation": "CREATE"}}}}
+			{"key": "554123", "value": {"envelope": {"meta": {"entityKey": "554123", "operation": "UPDATE", "eventTimeZone": "Europe/Moscow"}}}},
+			{"key": "evt-1", "value": {"envelope": {"meta": {"entityKey": "evt-1", "operation": "EVENT", "eventTimeZone": "UTC"}}}},
+			{"key": "x", "value": {"envelope": {"meta": {"entityKey": "x", "operation": "CREATE", "eventTimeZone": "Asia/Yekaterinburg"}}}}
 		]
 	}`)
 	assert.NoError(t, buildDefaultValidator(t).Validate(body))
@@ -73,7 +73,7 @@ func TestValidator_Tombstone(t *testing.T) {
 		{
 			name: "mixed_with_envelope",
 			body: `{"records": [
-				{"key": "554123", "value": {"envelope": {"meta": {"entityKey": "554123", "operation": "DELETE"}}}},
+				{"key": "554123", "value": {"envelope": {"meta": {"entityKey": "554123", "operation": "DELETE", "eventTimeZone": "Europe/Moscow"}}}},
 				{"key": "554123", "value": null}
 			]}`,
 		},
@@ -92,7 +92,7 @@ func TestValidator_Tombstone(t *testing.T) {
 
 func TestValidator_EntityKeyMismatch(t *testing.T) {
 	body := []byte(`{"records": [
-		{"key": "A", "value": {"envelope": {"meta": {"entityKey": "B", "operation": "UPDATE"}}}}
+		{"key": "A", "value": {"envelope": {"meta": {"entityKey": "B", "operation": "UPDATE", "eventTimeZone": "Europe/Moscow"}}}}
 	]}`)
 	err := buildDefaultValidator(t).Validate(body)
 	require.Error(t, err)
@@ -105,14 +105,14 @@ func TestValidator_EntityKeyMismatch(t *testing.T) {
 func TestValidator_EventWithEmptyEntityKey(t *testing.T) {
 	// EVENT + пустой entityKey + отсутствие key → валидно.
 	body := []byte(`{"records": [
-		{"value": {"envelope": {"meta": {"entityKey": "", "operation": "EVENT"}}}}
+		{"value": {"envelope": {"meta": {"entityKey": "", "operation": "EVENT", "eventTimeZone": "UTC"}}}}
 	]}`)
 	assert.NoError(t, buildDefaultValidator(t).Validate(body))
 }
 
 func TestValidator_OperationNotAllowed(t *testing.T) {
 	body := []byte(`{"records": [
-		{"key": "k", "value": {"envelope": {"meta": {"entityKey": "k", "operation": "WEIRD"}}}}
+		{"key": "k", "value": {"envelope": {"meta": {"entityKey": "k", "operation": "WEIRD", "eventTimeZone": "Europe/Moscow"}}}}
 	]}`)
 	err := buildDefaultValidator(t).Validate(body)
 	require.Error(t, err)
@@ -165,8 +165,58 @@ func TestBuilder_CheckersPreserveOrder(t *testing.T) {
 	require.NotNil(t, v)
 
 	body := []byte(`{"records": [
-		{"key": "A", "value": {"envelope": {"meta": {"entityKey": "B", "operation": "UPDATE"}}}}
+		{"key": "A", "value": {"envelope": {"meta": {"entityKey": "B", "operation": "UPDATE", "eventTimeZone": "Europe/Moscow"}}}}
 	]}`)
 	assert.NoError(t, v.Validate(body),
 		"entity_key_match не должен срабатывать, если его нет в Checks")
+}
+
+func TestValidator_EventTimeZoneRequired(t *testing.T) {
+	v := buildDefaultValidator(t)
+
+	t.Run("missing_event_time_zone", func(t *testing.T) {
+		body := []byte(`{"records":[{"key":"k","value":{"envelope":{"meta":{"entityKey":"k","operation":"UPDATE"}}}}]}`)
+		err := v.Validate(body)
+		require.Error(t, err)
+		var verr *ValidationError
+		require.True(t, errors.As(err, &verr))
+		assert.Equal(t, eventTimeZoneValidCheckName, verr.Check)
+	})
+
+	t.Run("empty_event_time_zone", func(t *testing.T) {
+		body := []byte(`{"records":[{"key":"k","value":{"envelope":{"meta":{"entityKey":"k","operation":"UPDATE","eventTimeZone":""}}}}]}`)
+		err := v.Validate(body)
+		require.Error(t, err)
+		var verr *ValidationError
+		require.True(t, errors.As(err, &verr))
+		assert.Equal(t, eventTimeZoneValidCheckName, verr.Check)
+	})
+
+	t.Run("offset_is_invalid", func(t *testing.T) {
+		body := []byte(`{"records":[{"key":"k","value":{"envelope":{"meta":{"entityKey":"k","operation":"UPDATE","eventTimeZone":"+03:00"}}}}]}`)
+		err := v.Validate(body)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), eventTimeZoneValidCheckName)
+	})
+
+	t.Run("abbreviation_is_invalid", func(t *testing.T) {
+		body := []byte(`{"records":[{"key":"k","value":{"envelope":{"meta":{"entityKey":"k","operation":"UPDATE","eventTimeZone":"MSK"}}}}]}`)
+		err := v.Validate(body)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), eventTimeZoneValidCheckName)
+	})
+
+	t.Run("iana_timezones_are_valid", func(t *testing.T) {
+		validTZ := []string{"UTC", "Europe/Moscow", "Asia/Yekaterinburg"}
+		for _, tz := range validTZ {
+			body := []byte(`{"records":[{"key":"k","value":{"envelope":{"meta":{"entityKey":"k","operation":"UPDATE","eventTimeZone":"` + tz + `"}}}}]}`)
+			assert.NoError(t, v.Validate(body))
+		}
+	})
+}
+
+func TestValidator_Tombstone_EventTimeZone(t *testing.T) {
+	v := buildDefaultValidator(t)
+	body := []byte(`{"records":[{"key":"k","value":null}]}`)
+	assert.NoError(t, v.Validate(body))
 }

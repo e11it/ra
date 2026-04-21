@@ -5,8 +5,9 @@ import "fmt"
 // defaultRegistry — встроенный набор чекеров.
 // Новый чекер = добавить запись в эту map + реализовать CheckerFactory.
 var defaultRegistry = map[string]CheckerFactory{
-	"entity_key_match":   newEntityKeyMatchCheck,
-	"operation_allowed":  newOperationAllowedCheck,
+	"entity_key_match":    newEntityKeyMatchCheck,
+	"operation_allowed":   newOperationAllowedCheck,
+	"event_time_zone_valid": newEventTimeZoneValidCheck,
 }
 
 // BuildCheckers собирает список RecordChecker'ов по именам, указанным в cfg.Checks.
