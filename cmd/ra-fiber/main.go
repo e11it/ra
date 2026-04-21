@@ -27,8 +27,12 @@ func main() {
 	})
 
 	app.Get("/reload", func(c *fiber.Ctx) error {
-		if err := ra.ReloadHandler(); err != nil {
-			return c.SendStatus(fiber.StatusBadRequest)
+		reloaded, err := ra.ReloadHandler()
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+		}
+		if !reloaded {
+			return c.SendStatus(fiber.StatusNotModified)
 		}
 		return c.SendStatus(fiber.StatusOK)
 	})

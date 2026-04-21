@@ -1,0 +1,49 @@
+---
+description: Корпоративный стандарт Kafka-сообщений (Avro) и его применение в ra.
+globs:
+  - "pkg/kafkarest/**"
+  - "internal/app/ra/**"
+  - "pkg/auth/**"
+alwaysApply: false
+---
+
+# Корпстандарт Kafka-сообщений (Avro) → правила для кода ra
+
+Источник правды: `docs/Корпоративный стандарт сообщений Kafka на базе Avro.md`.
+
+## Ключевые инварианты, которые нельзя нарушать в коде
+
+1. **`Kafka.key == UTF-8(envelope.meta.entityKey)`** — проверяется на ingress-gateway. При несоответствии → HTTP `400 Bad Request`.
+2. **Каталог `operation`**: `CREATE`, `UPDATE`, `UPSERT`, `DELETE`, `SNAPSHOT`, `EVENT`. Любые другие значения — отказ.
+3. Для `operation == "EVENT"` допустимо пустое значение `entityKey`.
+4. **Tombstone** — валидный сценарий для compacted-топиков: `{"key": "<entityKey>", "value": null}`. У такой записи нет envelope — её нельзя прогонять через чекеры, проверяющие `meta.*`. Валидатор обязан определять tombstone (по `value: null` / отсутствию value) и пропускать запись без ошибок.
+5. Чекеры должны быть независимыми и компонуемыми. Новый чекер — это тип, реализующий `pkg/kafkarest.RecordChecker`, регистрируемый в `pkg/kafkarest/registry.go`.
+
+## Формат REST v2 produce-запроса
+
+Тело запроса (Avro JSON encoding):
+
+```json
+{
+  "value_schema_id": 16,
+  "records": [
+    {"key": "554123", "value": {"envelope": {"meta": {"entityKey": "554123", "operation": "UPDATE", ...}, "tech": {...}}, "payload": {...}}},
+    {"key": "554123", "value": null}
+  ]
+}
+```
+
+- `key` — опциональный, строка (в REST v2 также может быть JSON-типизированным; мы сравниваем как строку).
+- `value` — объект с `envelope` и (опционально) `payload`/`payloadBefore`, либо `null` для tombstone.
+- `records` — обязательный непустой массив.
+
+## Что должно возвращать ошибку валидатора
+
+- Невалидный JSON.
+- Отсутствие массива `records` или пустой массив.
+- Для non-tombstone записи:
+  - отсутствие `envelope.meta` или его required-полей.
+  - `entityKey != key` (кроме случая `operation=EVENT` и обеих пустых/отсутствующих сторон).
+  - `operation` не из каталога.
+
+Сообщение об ошибке должно указывать номер записи (`records[i]`) и имя чекера.

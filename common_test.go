@@ -43,6 +43,9 @@ func createTestingAuthRouter(path string) *gin.Engine {
 	router.GET("/auth", func(c *gin.Context) {
 		c.String(http.StatusOK, "Auth")
 	})
+	router.POST("/auth", func(c *gin.Context) {
+		c.String(http.StatusOK, "Auth")
+	})
 	return router
 }
 
@@ -68,6 +71,10 @@ func testGetAuthServer() *gin.Engine {
 	// }
 
 	return createTestingAuthRouter("example/_test/auth_server_config.yml")
+}
+
+func testGetBodyValidationServer() *gin.Engine {
+	return createTestingAuthRouter("example/_test/body_validation_config.yml")
 }
 
 func testGetSRServer() *gin.Engine {

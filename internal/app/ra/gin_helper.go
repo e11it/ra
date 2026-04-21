@@ -18,6 +18,20 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// readAndRestoreBody читает тело запроса целиком и восстанавливает его,
+// чтобы последующие хендлеры (в т.ч. reverse proxy) получили нетронутый поток.
+func readAndRestoreBody(c *gin.Context) ([]byte, error) {
+	if c.Request.Body == nil {
+		return nil, nil
+	}
+	buf, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		return nil, err
+	}
+	c.Request.Body = io.NopCloser(bytes.NewReader(buf))
+	return buf, nil
+}
+
 // Создает объект auth.AuthRequest из git.Context
 func (ra *Ra) GetAuthRequest(c *gin.Context, proxy bool) (authRequest *auth.AuthRequest) {
 	authRequest = new(auth.AuthRequest)
@@ -57,6 +71,27 @@ func (ra *Ra) GetAuthMiddlerware(proxy bool) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}
+
+		if ra.bodyValidator != nil && c.Request.Method == http.MethodPost {
+			body, err := readAndRestoreBody(c)
+			if err != nil {
+				c.Header("X-RA-ERROR", err.Error())
+				if proxy {
+					c.String(http.StatusBadRequest, fmt.Sprintf("error: %s", err))
+				}
+				c.AbortWithStatus(http.StatusBadRequest)
+				return
+			}
+			if err := ra.bodyValidator.Validate(body); err != nil {
+				c.Header("X-RA-ERROR", err.Error())
+				if proxy {
+					c.String(http.StatusBadRequest, fmt.Sprintf("error: %s", err))
+				}
+				c.AbortWithStatus(http.StatusBadRequest)
+				return
+			}
+		}
+
 		c.Set("username", authRequest.AuthUser)
 		c.Next()
 	}

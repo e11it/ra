@@ -1,16 +1,17 @@
+---
 trimurlprefix: /topics/
 auth:
-  urlvalidreg: ^\d{3}-\d(-\d{3}-\d)?\.[a-z0-9-]+\.(db|cdc|cmd|sys|log|tmp)\.[a-z0-9-.]+\.\d+$
   acl:
-  - path: ^888-8\.example.*$
+  - path: .+
     users:
-    - avro-user
+    - any
     methods:
-    - POST
+    - any
     contenttype:
-    - application/vnd.kafka.avro.v2+json
+    - any
 
 body_validation:
   enabled: true
   allowed_operations: [CREATE, UPDATE, UPSERT, DELETE, SNAPSHOT, EVENT]
   checks: [entity_key_match, operation_allowed]
+...

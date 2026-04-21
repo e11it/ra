@@ -37,6 +37,14 @@ func (ra *Ra) GetFiberAuthMiddlerware() fiber.Handler {
 			c.Set(fiber.HeaderWWWAuthenticate, err.Error())
 			return c.SendStatus(fiber.StatusUnauthorized)
 		}
+
+		if ra.bodyValidator != nil && c.Method() == fiber.MethodPost {
+			if err := ra.bodyValidator.Validate(c.Body()); err != nil {
+				c.Set("X-RA-ERROR", err.Error())
+				return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+			}
+		}
+
 		return c.Next()
 	}
 }
