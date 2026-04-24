@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776779204271,
+  "lastUpdate": 1777073317778,
   "repoUrl": "https://github.com/e11it/ra",
   "entries": {
     "Go Benchmark": [
@@ -424,6 +424,52 @@ window.BENCHMARK_DATA = {
             "value": 8,
             "unit": "allocs/op",
             "extra": "11922578 times\n4 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "im@ilya-MBP.local",
+            "name": "Ilya Makarov"
+          },
+          "committer": {
+            "email": "im@ilya-MBP.local",
+            "name": "Ilya Makarov"
+          },
+          "distinct": true,
+          "id": "f9fccf65f460726d3d5a2cda2df172380d57ef2e",
+          "message": "Validation full refactor and more",
+          "timestamp": "2026-04-25T02:27:01+03:00",
+          "tree_id": "4984f8429f13620bf84ee58ec453dcdbce0231c3",
+          "url": "https://github.com/e11it/ra/commit/f9fccf65f460726d3d5a2cda2df172380d57ef2e"
+        },
+        "date": 1777073316927,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkAuthRequest",
+            "value": 945.3,
+            "unit": "ns/op\t     619 B/op\t       8 allocs/op",
+            "extra": "12003549 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkAuthRequest - ns/op",
+            "value": 945.3,
+            "unit": "ns/op",
+            "extra": "12003549 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkAuthRequest - B/op",
+            "value": 619,
+            "unit": "B/op",
+            "extra": "12003549 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkAuthRequest - allocs/op",
+            "value": 8,
+            "unit": "allocs/op",
+            "extra": "12003549 times\n4 procs"
           }
         ]
       }
