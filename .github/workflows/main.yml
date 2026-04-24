@@ -1,38 +1,157 @@
-name: Go Example
+name: Quality and Security
 on:
   push:
-    branches:
-      - master
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
 
 permissions:
-  contents: write
-  deployments: write
+  contents: read
 
 jobs:
-  benchmark:
-    name: Run Go benchmark example 2
+  quality-public:
+    name: Quality public
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.26.2'
-      - name: Install dependencies
-        run: go get .
-      - name: Run benchmark
-        run: go test -bench 'BenchmarkAuthRequest'  -benchtime=10s | tee output.txt
+          go-version: "1.26.2"
+          cache: true
+      - name: Download modules
+        run: go mod download
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test ./...
+      - name: Build
+        run: go build ./...
 
-      - name: Store benchmark result
-        uses: benchmark-action/github-action-benchmark@v1
+  quality-company:
+    name: Quality company
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          name: Go Benchmark
-          tool: 'go'
-          output-file-path: output.txt
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          # Show alert with commit comment on detecting possible performance regression
-          alert-threshold: '200%'
-          comment-on-alert: true
-          fail-on-alert: true
-          alert-comment-cc-users: '@e11it'
+          go-version: "1.26.2"
+          cache: true
+      - name: Download modules
+        run: go mod download
+      - name: Vet (company)
+        run: go vet -tags "nomsgpack,company" ./...
+      - name: Test (company)
+        run: go test -tags "nomsgpack,company" ./...
+      - name: Build (company)
+        run: go build -tags "nomsgpack,company" ./...
+
+  secrets:
+    name: Secrets (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sast:
+    name: SAST (gosec)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.2"
+          cache: true
+      - name: Run gosec
+        run: go run github.com/securego/gosec/v2/cmd/gosec@v2.25.0 -exclude-dir='\.gomodcache' -exclude-dir='\.gocache' ./...
+
+  sca:
+    name: SCA (govulncheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.2"
+          cache: true
+      - name: Run govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+
+  scan-fs:
+    name: Trivy FS scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+  scan-image:
+    name: Trivy image scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: make docker-build RA_DOCKER_VARIANT=public
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: ra:public
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+  dast-nightly:
+    name: DAST nightly (OWASP ZAP baseline)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.2"
+          cache: true
+      - name: Build RA binary
+        run: go build -tags "nomsgpack" -o ra .
+      - name: Start RA server
+        run: |
+          RA_CONFIG_FILE=example/config.yml ./ra > ra.log 2>&1 &
+          echo $! > ra.pid
+      - name: Wait for RA
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/metrics >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "ra did not become ready in time"
+          test -f ra.log && tail -n 200 ra.log || true
+          exit 1
+      - name: OWASP ZAP baseline
+        run: |
+          docker run --rm --network host -v "${PWD}:/zap/wrk" ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t http://localhost:8080 -I -m 3 -r zap-report.html
+      - name: Upload ZAP report
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: zap-report.html
+      - name: Stop stack
+        if: always()
+        run: |
+          if [ -f ra.pid ]; then kill "$(cat ra.pid)" || true; fi
+          rm -f ra.pid
