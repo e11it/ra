@@ -1,15 +1,15 @@
 package ra
 
 import (
+	"bytes"
 	"encoding/base64"
 	"strings"
 
 	"github.com/e11it/ra/pkg/auth"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/gofiber/fiber/v3"
 )
 
-func (ra *Ra) GetFiberAuthRequest(c *fiber.Ctx) (authRequest *auth.AuthRequest) {
+func (ra *Ra) GetFiberAuthRequest(c fiber.Ctx) (authRequest *auth.AuthRequest) {
 	authRequest = new(auth.AuthRequest)
 
 	// Не очень удачное место для обрезания URL
@@ -30,18 +30,32 @@ func (ra *Ra) GetFiberAuthRequest(c *fiber.Ctx) (authRequest *auth.AuthRequest) 
 }
 
 func (ra *Ra) GetFiberAuthMiddlerware() fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		authRequest := ra.GetFiberAuthRequest(c)
 		err := ra.auth.Validate(authRequest)
 		if err != nil {
 			c.Set(fiber.HeaderWWWAuthenticate, err.Error())
-			return c.SendStatus(fiber.StatusUnauthorized)
+			return WriteJSONErrorFiber(
+				c,
+				fiber.StatusForbidden,
+				ErrorCodeAuthDenied,
+				"Ra: auth denied",
+				err.Error(),
+				DetailsWithReason(FiberTraceID(c), err),
+			)
 		}
 
 		if ra.bodyValidator != nil && c.Method() == fiber.MethodPost {
-			if err := ra.bodyValidator.Validate(c.Body()); err != nil {
-				c.Set("X-RA-ERROR", err.Error())
-				return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+			rep := ra.bodyValidator.Validate(c.Body())
+			if rep.HasErrors() {
+				return WriteJSONErrorFiber(
+					c,
+					fiber.StatusUnprocessableEntity,
+					ErrorCodePayloadValidate,
+					"Ra: payload validation errors",
+					rep.SummaryLine(),
+					BuildValidationDetails(rep, FiberTraceID(c)),
+				)
 			}
 		}
 
@@ -49,12 +63,12 @@ func (ra *Ra) GetFiberAuthMiddlerware() fiber.Handler {
 	}
 }
 
-func FiberBasicAuth(c *fiber.Ctx) (username, password string, ok bool) {
+func FiberBasicAuth(c fiber.Ctx) (username, password string, ok bool) {
 	// Get authorization header
 	auth := c.Get(fiber.HeaderAuthorization)
 
 	// Check if the header contains content besides "basic".
-	if len(auth) <= 6 || strings.ToLower(auth[:5]) != "basic" {
+	if len(auth) <= 6 || !strings.EqualFold(auth[:5], "basic") {
 		return "", "", false
 	}
 
@@ -64,18 +78,14 @@ func FiberBasicAuth(c *fiber.Ctx) (username, password string, ok bool) {
 		return "", "", false
 	}
 
-	// Get the credentials
-	creds := utils.UnsafeString(raw)
-
 	// Check if the credentials are in the correct form
 	// which is "username:password".
-	index := strings.Index(creds, ":")
+	index := bytes.IndexByte(raw, ':')
 	if index == -1 {
 		return "", "", false
 	}
 
 	// Get the username and password
-	// username := creds[:index]
-	// password := creds[index+1:]
+	creds := string(raw)
 	return creds[:index], creds[index+1:], true
 }

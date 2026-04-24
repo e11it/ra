@@ -2,39 +2,63 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
-	"github.com/e11it/ra/internal/app/ra"
-	"github.com/gofiber/fiber/v2"
+	RA "github.com/e11it/ra/internal/app/ra"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/adaptor"
 )
 
 func main() {
-	ra, err := ra.NewRA(getEnv("RA_CONFIG_FILE", "config.yml"))
+	ra, err := RA.NewRA(getEnv("RA_CONFIG_FILE", "config.yml"))
 	if err != nil {
 		log.Fatalln(err)
 	}
+	metrics := RA.NewMetrics()
 
 	app := fiber.New(fiber.Config{
 		ReadTimeout: 2 * time.Second,
 		IdleTimeout: 30 * time.Second,
 	})
+	app.Use(metrics.FiberMiddleware())
 
-	app.Post("/auth", ra.GetFiberAuthMiddlerware(), func(c *fiber.Ctx) error {
+	app.Post("/auth", ra.GetFiberAuthMiddlerware(), func(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
-	app.Get("/reload", func(c *fiber.Ctx) error {
+	app.Get("/reload", func(c fiber.Ctx) error {
 		reloaded, err := ra.ReloadHandler()
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+			metrics.ObserveReload("error")
+			return RA.WriteJSONErrorFiber(
+				c,
+				fiber.StatusBadRequest,
+				RA.ErrorCodeReloadFailed,
+				"Ra: config reload failed",
+				err.Error(),
+				RA.DetailsWithReason(RA.FiberTraceID(c), err),
+			)
 		}
 		if !reloaded {
+			metrics.ObserveReload("not_changed")
 			return c.SendStatus(fiber.StatusNotModified)
 		}
+		metrics.ObserveReload("changed")
 		return c.SendStatus(fiber.StatusOK)
+	})
+	app.Get("/metrics", adaptor.HTTPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		metrics.Handler().ServeHTTP(w, r)
+	})))
+	app.Get("/api/openapi/ra.yaml", func(c fiber.Ctx) error {
+		return c.SendFile(resolveOpenAPIFile("ra.yaml"))
+	})
+	app.Get("/api/openapi", func(c fiber.Ctx) error {
+		return c.SendFile(resolveOpenAPIFile("index.html"))
 	})
 	go func() {
 		if err := app.Listen(ra.GetServerAddr()); err != nil {
@@ -52,7 +76,9 @@ func main() {
 		switch s {
 		case syscall.SIGHUP:
 			// TODO: перегрузка конфига
-			ra.ReloadHandler()
+			if _, err := ra.ReloadHandler(); err != nil {
+				log.Printf("reload on SIGHUP failed: %v", err)
+			}
 
 			/* REMOVE
 			updateConfig(Config, cs)
@@ -79,4 +105,17 @@ func getEnv(key, fallback string) string {
 		value = fallback
 	}
 	return value
+}
+
+func resolveOpenAPIFile(name string) string {
+	candidates := []string{
+		filepath.Clean(filepath.Join("/app/api/openapi", name)),
+		filepath.Clean(filepath.Join("api/openapi", name)),
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return candidates[0]
 }

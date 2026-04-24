@@ -2,20 +2,25 @@ ARG GOLANG_VERSION=1.26.2
 ARG APP_VERSION=latest
 ARG APP_IMAGE_DATE_CREATED
 ARG APP_COMMIT_SHA
+ARG GO_TAGS=nomsgpack
 
-FROM golang:modules as modules
-FROM golang:${GOLANG_VERSION} as build
+FROM golang:${GOLANG_VERSION} AS modules
+WORKDIR /app
+COPY Makefile go.mod go.sum ./
+RUN make go-download && make go-lint-install
+
+FROM golang:${GOLANG_VERSION} AS build
+ARG GO_TAGS
 LABEL autodelete="true"
 COPY --from=modules /go/pkg /go/pkg
+COPY --from=modules /app/bin/golangci-lint /app/bin/golangci-lint
 WORKDIR /app
 COPY . .
-COPY --from=modules /app/bin/golangci-lint /app/bin/golangci-lint
-RUN PROJECTNAME=ra make go-build
-
-
-
-
+RUN PROJECTNAME=ra GO_TAGS=${GO_TAGS} make go-build
 FROM gcr.io/distroless/base-debian12
+ARG APP_VERSION
+ARG APP_IMAGE_DATE_CREATED
+ARG APP_COMMIT_SHA
 
 LABEL org.opencontainers.image.authors="ilya makarov" \
       org.opencontainers.image.created=${APP_IMAGE_DATE_CREATED} \
@@ -26,4 +31,5 @@ LABEL org.opencontainers.image.authors="ilya makarov" \
 WORKDIR /app
 
 COPY --from=build /app/ra /app/bin/ra
+COPY --from=build /app/api/openapi /app/api/openapi
 CMD ["/app/bin/ra"]

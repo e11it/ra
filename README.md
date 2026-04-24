@@ -1,84 +1,127 @@
-Добавить кеш проверок
-https://pkg.go.dev/github.com/hashicorp/golang-lru
+# ra — Request Authenticator
 
+`ra` — сервис авторизации и прокси перед Kafka REST Proxy.
 
+Основные режимы:
+- `auth_request` для nginx (`GET /auth`)
+- proxy-режим (`/topics/*proxyPath`) c ACL и опциональной body validation
 
-* Список acl проверяется сверху вниз, пока не найдется успешное правило
-* если под url попадает несколько правил, то сработает первое успешное.
-* если под url удовлетворяет нескольк правил, но все 
+## Эндпоинты
 
-TODO:
-- Мониторинг. Промахи в кеше
+- `GET /auth` — проверка ACL и (для `POST`) проверка тела при включенной body validation.
+- `ANY /topics/*proxyPath` — proxy в upstream при `proxy.enabled: true`.
+- `GET /metrics` — Prometheus metrics.
+- `GET /api/openapi/ra.yaml` — OpenAPI spec in YAML.
+- `GET /api/openapi` — HTML docs (Swagger UI).
+- `GET /reload` — reload конфига.
 
-- Bench: https://e11it.github.io/ra/dev/bench/
+## OpenAPI generation
 
-config.yml
-```
-auth:
-  prefix: string
-  allow_content_type: regexp
-  url_mask: regexp
-  urls: name
-    url_mask: regexp
-    urls:
-    - name: string
+- Конфиг генерации: `api/oapi-config.yaml`
+- Спека: `api/openapi/ra.yaml`
+- Сгенерированный код (`models + embedded-spec`): `api/openapi/openapi.gen.go`
 
-  acl:
-  - mask: 000-0\.sap-erp.*
-    users:
-    - sap
-    methods:
-    - post
-    content_type:
-    - sdfasdfasdf
+Команда:
+
+```bash
+make openapi-gen
 ```
 
-Debug RA
-```
-curl -v \
-  -u kafka-enforce.prod.AstueStag@rest.kafka.prod:somepassword \
-  -H "Content-Type: application/vnd.kafka.avro.v2+json" \
-  -H "X-Original-Uri: /topics/006-0.kafka-enforce.db.ts.stagdok.ec.energy-meter.0" \
-  -H "X-Original-Method: POST" \
-  http://ra:8080/auth
-```
+## Quality and Security
 
-## Проверка тела сообщения (Kafka REST v2 Avro)
+- Fast local checks: `make qa-fast`
+- Full local security profile: `make qa-security`
+- Trivy filesystem scan: `make scan-fs`
+- Trivy image scan: `make scan-image`
+- DAST baseline (ZAP): `make dast`
 
-Модуль `pkg/kafkarest` умеет валидировать тело POST-запроса к Kafka REST v2 (`/topics/<topic>`) по корпстандарту из `docs/Корпоративный стандарт сообщений Kafka на базе Avro.md`. Включается блоком `body_validation` в конфиге:
+Details: `docs/security.md`.
+
+## Конфиг (ключевые блоки)
 
 ```yaml
+trimurlprefix: /topics/
+
+# Не писать access-лог (Gin) для перечисленных path (без query); по умолчанию /metrics, OpenAPI, и т.д.
+access_log:
+  exclude_paths: [/metrics, /health, /ready, /api/openapi, /api/openapi/ra.yaml]
+
+proxy:
+  enabled: true
+  proxyhost: "http://rest-proxy:8082"
+
 body_validation:
   enabled: true
   allowed_operations: [CREATE, UPDATE, UPSERT, DELETE, SNAPSHOT, EVENT]
-  checks: [entity_key_match, operation_allowed, event_time_zone_valid]
+  checks: [no_partition, is_tombstone, envelope, payload, entity_key]
 ```
 
-Встроенные чекеры:
+## Body validation (company build)
 
-- `entity_key_match` — проверяет `records[i].key == envelope.meta.entityKey`. Для `operation=EVENT` допускается пустое `entityKey` и отсутствие `key`.
-- `operation_allowed` — проверяет, что `envelope.meta.operation` входит в `allowed_operations`.
-- `event_time_zone_valid` — проверяет, что `envelope.meta.eventTimeZone` задан и является корректным IANA id (например, `Europe/Moscow`, `UTC`). Смещения (`+03:00`) и аббревиатуры (`MSK`) запрещены.
+Валидация тела (`Kafka REST v2 produce`) активна только с build tag `company`.
 
-Tombstone-записи (`{"key": "...", "value": null}`) распознаются автоматически и пропускаются без чекеров — по стандарту у них нет envelope.
+- `pkg/validate` — контракты/check-pipeline (`Report/Issue/Control`)
+- `pkg/payloadvalidate` — protocol-layer parser для `records[]`
+- `pkg/validate/common` — общие чекеры (сейчас `is_tombstone`)
+- `pkg/validate/company` — корпоративные чекеры (`no_partition`, `envelope`, `payload`, `entity_key`)
 
-Нарушение любого чекера → HTTP `400 Bad Request` c деталями в заголовке `X-RA-ERROR`.
+Подробнее: `docs/packages.md`.
 
-### Как добавить свой чекер
+## Сборка
 
-1. В `pkg/kafkarest/check_<name>.go` реализуйте тип, удовлетворяющий `RecordChecker` (поля `Name() string` и `Check(CheckContext, *Record) error`).
-2. Зарегистрируйте фабрику в `defaultRegistry` в `pkg/kafkarest/registry.go`.
-3. Добавьте имя чекера в `checks:` конфига.
-4. Покройте юнит-тестом в пакете `kafkarest`.
+- Public: `make go-build` (`GO_TAGS=nomsgpack`)
+- Company: `GO_TAGS="nomsgpack,company" make go-build`
+- Docker public: `docker build -f docker/RA.Dockerfile .`
+- Docker company: `docker build -f docker/RA.Dockerfile --build-arg GO_TAGS="nomsgpack,company" .`
 
-### Ограничения режима `auth_request`
+## Локальный запуск примера
 
-В режиме `auth_request` (nginx-subrequest на `/auth`) тело запроса **не передаётся** в subrequest nginx'ом по умолчанию. Чтобы body validation имела смысл, есть два варианта:
+- `make docker-up RA_DOCKER_VARIANT=public`
+- `make docker-up RA_DOCKER_VARIANT=company`
 
-- **Рекомендуется**: использовать встроенный proxy-режим ra (`proxy.enabled: true`, `proxy.proxyhost: http://rest-proxy:8082`) и маршрут `/topics/*proxyPath` — тело доступно напрямую и проксируется дальше после валидации.
-- Либо настроить nginx так, чтобы тело попадало в subrequest — например, через OpenResty/lua или директиву `mirror`. В конфиге примера `example/nginx/conf.d/secured.conf` по умолчанию стоит `proxy_pass_request_body off` — для включения body validation потребуется перенастройка.
+Compose-файл: `example/docker-compose.yml`.
 
-// -H "Authorization: Basic bDMtb3JhLXB0czoxMjM="
-updater!!!
+## Наблюдаемость
 
-https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers#config-http-conn-man-headers-x-request-id
+- JSON access logs (`method`, `path`, `status`, `latency`, `x_request_id`, `x_ra_error`)
+- Prometheus метрики:
+  - `ra_http_requests_total`
+  - `ra_http_request_duration_seconds`
+  - `ra_http_inflight_requests`
+  - `ra_auth_denied_total`
+  - `ra_body_validation_failed_total`
+  - `ra_proxy_upstream_errors_total`
+  - `ra_config_reload_total{result}`
+
+## Формат ошибок
+
+RA возвращает ошибки в JSON-формате (включая `auth_request`):
+
+```json
+{
+  "error_code": 42230,
+  "message": "Ra: payload validation errors",
+  "details": {
+    "trace_id": "c7fd43f8-1357-4b75-92f8-8d9fd9566ddd",
+    "errors": [
+      {
+        "record_index": 0,
+        "path": "records[0].key",
+        "code": "key_mismatch",
+        "message": "record key \"554123\" does not match envelope.meta.entityKey \"5541s23\""
+      }
+    ]
+  }
+}
+```
+
+`X-RA-ERROR` остаётся в ответе как краткий summary для совместимости.
+
+### Карта сценариев
+
+- `auth deny` → HTTP `403`, `error_code: 40301`
+- `body read / malformed body` → HTTP `400`, `error_code: 40010`
+- `payload validation failed` → HTTP `422`, `error_code: 42230`
+- `reload failed` → HTTP `400`, `error_code: 40020`
+
+Каноничный список кодов, их природа и значение хранится в `internal/app/ra/error_codes.go`.

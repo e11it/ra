@@ -11,7 +11,8 @@ auth:
     - any
 
 body_validation:
+  # Requires binary built with GO_TAGS containing "company".
   enabled: true
   allowed_operations: [CREATE, UPDATE, UPSERT, DELETE, SNAPSHOT, EVENT]
-  checks: [entity_key_match, operation_allowed, event_time_zone_valid]
+  checks: [no_partition, is_tombstone, envelope, payload, entity_key]
 ...

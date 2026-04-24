@@ -1,11 +1,12 @@
 package filepath
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"hash"
 	"io"
 	"os"
+	"path/filepath"
 )
 
 // Хранит путь до файла и последнюю известную контрольную сумму
@@ -21,7 +22,7 @@ func NewFileWithChecksum(path string) (*FileWithChecksum, error) {
 	)
 	cm = new(FileWithChecksum)
 	cm.configPath = path
-	cm.configChecksum, err = fileMd5Checksum(path)
+	cm.configChecksum, err = fileChecksum(path)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +42,7 @@ func (cm *FileWithChecksum) IsConfigFileChanged() (bool, error) {
 		err         error
 	)
 
-	newChecksum, err = fileMd5Checksum(cm.configPath)
+	newChecksum, err = fileChecksum(cm.configPath)
 	if err != nil {
 		return true, err
 	}
@@ -52,16 +53,17 @@ func (cm *FileWithChecksum) IsConfigFileChanged() (bool, error) {
 	return false, nil
 }
 
-// Функтция вычисляет md5 сумму файла или возвращает ошибку
-func fileMd5Checksum(filePath string) (string, error) {
+// fileChecksum computes content checksum for change detection.
+func fileChecksum(filePath string) (string, error) {
 	var (
 		fileHash hash.Hash
 		file     *os.File
 		err      error
 	)
-	// #nosec
-	fileHash = md5.New()
-	file, err = os.Open(filePath)
+	fileHash = sha256.New()
+	cleanPath := filepath.Clean(filePath)
+	// #nosec G304 -- path comes from configured RA_CONFIG_FILE and is expected to be user-provided.
+	file, err = os.Open(cleanPath)
 	if err != nil {
 		return "", err
 	}

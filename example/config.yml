@@ -1,16 +1,23 @@
 trimurlprefix: /topics/
+# Список [http.Request.URL.Path] (без query), для которых не пишется access-лог (Gin).
+# По умолчанию — технические endpoint'ы; переопредели, если нужен полный access-лог.
+access_log:
+  exclude_paths: [/metrics, /health, /ready, /api/openapi, /api/openapi/ra.yaml]
+proxy:
+  enabled: true
+  proxyhost: "http://127.0.0.1:9999"
 auth:
-  urlvalidreg: ^\d{3}-\d(-\d{3}-\d)?\.[a-z0-9-]+\.(db|cdc|cmd|sys|log|tmp)\.[a-z0-9-.]+\.\d+$
+  urlvalidreg: ^dev1s\..+?$
   acl:
-  - path: ^888-8\.example.*$
+  - path: dev1s\.[a-z0-9-]+\.(doc)\.+?
     users:
-    - avro-user
+    - any
     methods:
-    - POST
+    - post
     contenttype:
     - application/vnd.kafka.avro.v2+json
-
 body_validation:
+  # Requires binary built with GO_TAGS containing "company".
   enabled: true
   allowed_operations: [CREATE, UPDATE, UPSERT, DELETE, SNAPSHOT, EVENT]
-  checks: [entity_key_match, operation_allowed, event_time_zone_valid]
+  checks: [no_partition, is_tombstone, envelope, payload, entity_key]

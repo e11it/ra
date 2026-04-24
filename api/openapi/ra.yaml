@@ -1,0 +1,130 @@
+openapi: 3.1.0
+info:
+  title: RA API
+  version: 1.0.0
+  description: Request Authenticator control and proxy API.
+servers:
+  - url: http://localhost:8080
+paths:
+  /auth:
+    get:
+      summary: Validate request in auth_request mode
+      responses:
+        "200":
+          description: Request allowed
+          content:
+            text/plain:
+              schema:
+                type: string
+        "403":
+          description: Request denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Payload validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /topics/{proxyPath}:
+    parameters:
+      - in: path
+        name: proxyPath
+        required: true
+        schema:
+          type: string
+    post:
+      summary: Proxy Kafka REST requests
+      responses:
+        "200":
+          description: Proxied response
+        "4XX":
+          description: Validation/auth error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "5XX":
+          description: Upstream/proxy failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /reload:
+    get:
+      summary: Reload RA config
+      responses:
+        "200":
+          description: Config reloaded
+        "304":
+          description: Config unchanged
+        "400":
+          description: Reload failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        "200":
+          description: Prometheus exposition format
+          content:
+            text/plain:
+              schema:
+                type: string
+  /api/openapi/ra.yaml:
+    get:
+      summary: OpenAPI specification (YAML)
+      responses:
+        "200":
+          description: OpenAPI YAML
+          content:
+            application/yaml:
+              schema:
+                type: string
+  /api/openapi:
+    get:
+      summary: Swagger UI HTML
+      responses:
+        "200":
+          description: HTML page with Swagger UI
+          content:
+            text/html:
+              schema:
+                type: string
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error_code, message, details]
+      properties:
+        error_code:
+          type: integer
+          example: 42230
+        message:
+          type: string
+          example: "Ra: payload validation errors"
+        details:
+          type: object
+          properties:
+            trace_id:
+              type: string
+            reason:
+              type: string
+            errors:
+              type: array
+              items:
+                type: object
+                properties:
+                  record_index:
+                    type: integer
+                  path:
+                    type: string
+                  code:
+                    type: string
+                  message:
+                    type: string

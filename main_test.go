@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -10,12 +11,19 @@ import (
 	"time"
 
 	"github.com/e11it/ra/internal/app/ra"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/gofiber/fiber/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/valyala/fasthttp"
 )
+
+type raErrorResp struct {
+	ErrorCode int    `json:"error_code"`
+	Message   string `json:"message"`
+	Details   struct {
+		TraceID string `json:"trace_id"`
+	} `json:"details"`
+}
 
 func TestMain(m *testing.M) {
 	logrus.SetOutput(ioutil.Discard)
@@ -95,6 +103,12 @@ func TestBadRequest(t *testing.T) {
 	router.ServeHTTP(w, req)
 	// assert.False(t, called)
 	assert.Equal(t, http.StatusForbidden, w.Code)
+	assert.Contains(t, w.Header().Get("Content-Type"), "application/json")
+	var got raErrorResp
+	err := json.Unmarshal(w.Body.Bytes(), &got)
+	assert.NoError(t, err)
+	assert.Equal(t, 40301, got.ErrorCode)
+	assert.Equal(t, "Ra: auth denied", got.Message)
 }
 
 func TestSchemaRegistrySuccess(t *testing.T) {
@@ -148,79 +162,12 @@ func TestSchemaRegistryDeny(t *testing.T) {
 
 	// assert.False(t, called)
 	assert.Equal(t, http.StatusForbidden, w.Code)
-}
-
-func TestBodyValidation_ValidAvroBatch(t *testing.T) {
-	router := testGetBodyValidationServer()
-	assert.NotNilf(t, router, "Error init router")
-
-	body := `{"records": [
-		{"key": "554123", "value": {"envelope": {"meta": {"entityKey": "554123", "operation": "UPDATE", "eventTimeZone": "Europe/Moscow"}}}},
-		{"key": "554123", "value": null}
-	]}`
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/auth", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/vnd.kafka.avro.v2+json")
-	req.Header.Set("X-Original-Uri", "/topics/888-8.example.db.awesome.0")
-	req.Header.Set("X-Original-Method", "POST")
-	router.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code, "валидный batch + tombstone должен пройти")
-}
-
-func TestBodyValidation_EntityKeyMismatch(t *testing.T) {
-	router := testGetBodyValidationServer()
-	assert.NotNilf(t, router, "Error init router")
-
-	body := `{"records": [
-		{"key": "A", "value": {"envelope": {"meta": {"entityKey": "B", "operation": "UPDATE", "eventTimeZone": "Europe/Moscow"}}}}
-	]}`
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/auth", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/vnd.kafka.avro.v2+json")
-	req.Header.Set("X-Original-Uri", "/topics/888-8.example.db.awesome.0")
-	req.Header.Set("X-Original-Method", "POST")
-	router.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Header().Get("X-RA-ERROR"), "entity_key_match")
-}
-
-func TestBodyValidation_OperationNotAllowed(t *testing.T) {
-	router := testGetBodyValidationServer()
-	assert.NotNilf(t, router, "Error init router")
-
-	body := `{"records": [
-		{"key": "k", "value": {"envelope": {"meta": {"entityKey": "k", "operation": "WEIRD", "eventTimeZone": "Europe/Moscow"}}}}
-	]}`
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/auth", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/vnd.kafka.avro.v2+json")
-	req.Header.Set("X-Original-Uri", "/topics/888-8.example.db.awesome.0")
-	req.Header.Set("X-Original-Method", "POST")
-	router.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Header().Get("X-RA-ERROR"), "operation_allowed")
-}
-
-func TestBodyValidation_TombstoneOnly(t *testing.T) {
-	router := testGetBodyValidationServer()
-	assert.NotNilf(t, router, "Error init router")
-
-	body := `{"records": [{"key": "554123", "value": null}]}`
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/auth", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/vnd.kafka.avro.v2+json")
-	req.Header.Set("X-Original-Uri", "/topics/888-8.example.db.awesome.0")
-	req.Header.Set("X-Original-Method", "POST")
-	router.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Header().Get("Content-Type"), "application/json")
+	var got raErrorResp
+	err := json.Unmarshal(w.Body.Bytes(), &got)
+	assert.NoError(t, err)
+	assert.Equal(t, 40301, got.ErrorCode)
+	assert.Equal(t, "Ra: auth denied", got.Message)
 }
 
 func TestBodyValidation_GetRequestNotValidated(t *testing.T) {
@@ -237,25 +184,6 @@ func TestBodyValidation_GetRequestNotValidated(t *testing.T) {
 		"body validation применяется только к POST — GET должен пройти мимо")
 }
 
-func TestBodyValidation_InvalidTimeZone(t *testing.T) {
-	router := testGetBodyValidationServer()
-	assert.NotNilf(t, router, "Error init router")
-
-	body := `{"records": [
-		{"key": "k", "value": {"envelope": {"meta": {"entityKey": "k", "operation": "UPDATE", "eventTimeZone": "+03:00"}}}}
-	]}`
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/auth", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/vnd.kafka.avro.v2+json")
-	req.Header.Set("X-Original-Uri", "/topics/888-8.example.db.awesome.0")
-	req.Header.Set("X-Original-Method", "POST")
-	router.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Header().Get("X-RA-ERROR"), "event_time_zone_valid")
-}
-
 func BenchmarkFiber(b *testing.B) {
 	ra, err := ra.NewRA("example/_test/auth_server_config.yml")
 	if err != nil {
@@ -266,7 +194,7 @@ func BenchmarkFiber(b *testing.B) {
 		ReadTimeout: 2 * time.Second,
 		IdleTimeout: 30 * time.Second,
 	})
-	app.Post("/auth", ra.GetFiberAuthMiddlerware(), func(c *fiber.Ctx) error {
+	app.Post("/auth", ra.GetFiberAuthMiddlerware(), func(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
@@ -289,7 +217,9 @@ func BenchmarkFiber(b *testing.B) {
 		h(fctx)
 	}
 
-	utils.AssertEqual(b, fiber.StatusOK, fctx.Response.Header.StatusCode())
+	if got := fctx.Response.Header.StatusCode(); got != fiber.StatusOK {
+		b.Fatalf("unexpected status: got=%d want=%d", got, fiber.StatusOK)
+	}
 }
 
 func BenchmarkAuthRequest(b *testing.B) {

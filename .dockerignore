@@ -1,0 +1,14 @@
+.git
+.gitignore
+.cursor/
+.agent/
+.vscode/
+
+bin/
+ra
+
+docs/
+example/
+
+**/*_test.go
+**/.DS_Store

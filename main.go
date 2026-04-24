@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -26,9 +28,13 @@ func main() {
 		log.Err(err).Msg("config load error")
 		os.Exit(1)
 	}
+	metrics := RA.NewMetrics()
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
+	router.Use(metrics.GinMiddleware())
+	router.Use(RA.ErrAbortHandlerSilenceMiddleware())
+	router.Use(RA.AccessLogMiddleware(ra.AccessLogExcludePaths()))
 	// router.Use(helpers.DebugLogger())
 
 	router.GET("/auth",
@@ -48,22 +54,40 @@ func main() {
 	router.GET("/reload", func(c *gin.Context) {
 		reloaded, err := ra.ReloadHandler()
 		if err != nil {
-			c.String(http.StatusBadRequest, err.Error())
+			metrics.ObserveReload("error")
+			RA.WriteJSONErrorGin(
+				c,
+				http.StatusBadRequest,
+				RA.ErrorCodeReloadFailed,
+				"Ra: config reload failed",
+				err.Error(),
+				RA.DetailsWithReason(RA.GinTraceID(c), err),
+			)
 			return
 		}
 		if reloaded {
+			metrics.ObserveReload("changed")
 			log.Info().Msg("config reloaded")
 			c.String(http.StatusOK, "Reload")
 		} else {
+			metrics.ObserveReload("not_changed")
 			log.Info().Msg("config not changed")
 			c.String(http.StatusNotModified, "config not changed")
 		}
+	})
+	router.GET("/metrics", gin.WrapH(metrics.Handler()))
+	router.GET("/api/openapi/ra.yaml", func(c *gin.Context) {
+		c.File(resolveOpenAPIFile("ra.yaml"))
+	})
+	router.GET("/api/openapi", func(c *gin.Context) {
+		c.File(resolveOpenAPIFile("index.html"))
 	})
 
 	srv := &http.Server{
 		Addr:              ra.GetServerAddr(),
 		Handler:           router,
 		ReadHeaderTimeout: 3 * time.Second,
+		ErrorLog:          RA.HTTPServerErrorLog(),
 	}
 	log.Info().Msgf("Starting server on: %s", ra.GetServerAddr())
 	// Initializing the server in a goroutine so that
@@ -89,13 +113,19 @@ func main() {
 		switch s {
 		case syscall.SIGHUP:
 			// TODO: перегрузка конфига
-			ra.ReloadHandler()
+			if _, err := ra.ReloadHandler(); err != nil {
+				log.Warn().Err(err).Msg("reload on SIGHUP failed")
+			}
 		case syscall.SIGINT, syscall.SIGTERM:
 			log.Info().Msg("shuting down server...")
 
 			// The context is used to inform the server it has 5 seconds to finish
 			// the request it is currently handling
-			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(ra.GetShutdownTimeout())*time.Second)
+			timeout, err := time.ParseDuration(fmt.Sprintf("%ds", ra.GetShutdownTimeout()))
+			if err != nil {
+				timeout = 5 * time.Second
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 			if err := srv.Shutdown(ctx); err != nil {
 				log.Error().Msgf("server forced to shutdown: %s", err.Error())
@@ -105,4 +135,17 @@ func main() {
 			return
 		}
 	}
+}
+
+func resolveOpenAPIFile(name string) string {
+	candidates := []string{
+		filepath.Clean(filepath.Join("/app/api/openapi", name)),
+		filepath.Clean(filepath.Join("api/openapi", name)),
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return candidates[0]
 }

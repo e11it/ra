@@ -16,13 +16,13 @@ services:
     logging: *default-logging
     depends_on:
       - ra
-    restart: always
     ports:
       - 8080:80
     volumes:
       - ./nginx_conf.d:/etc/nginx/conf.d:ro
   # /////////////////////////////////////////////////////////////////////////////
   ra:
+    # Makefile passes RA_VERSION=<public|company> to choose local image variant.
     image:  "${ORG_PREFIX:-}ra:${RA_VERSION:-latest}"
     restart: always
     logging: *default-logging

@@ -6,7 +6,7 @@ import (
 	"github.com/e11it/ra/pkg/auth"
 	"github.com/e11it/ra/pkg/auth/cache"
 	"github.com/e11it/ra/pkg/filepath"
-	"github.com/e11it/ra/pkg/kafkarest"
+	"github.com/e11it/ra/pkg/validate"
 
 	"github.com/jinzhu/configor"
 )
@@ -18,7 +18,7 @@ type Ra struct {
 	config  *Config
 
 	auth          auth.AccessController
-	bodyValidator kafkarest.BodyValidator
+	bodyValidator validate.BodyValidator
 }
 
 func NewRA(configPath string) (*Ra, error) {
@@ -39,7 +39,7 @@ func NewRA(configPath string) (*Ra, error) {
 	if err = ra.createAccessController(ra.config); err != nil {
 		return nil, err
 	}
-	if ra.bodyValidator, err = kafkarest.NewValidatorFromConfig(ra.config.kafkaRestConfig()); err != nil {
+	if ra.bodyValidator, err = createBodyValidator(ra.config.validationConfig()); err != nil {
 		return nil, err
 	}
 	return ra, nil
@@ -55,6 +55,12 @@ func (ra *Ra) ProxyEnabled() bool {
 
 func (ra *Ra) GetShutdownTimeout() uint {
 	return ra.config.ShutdownTimeout
+}
+
+// AccessLogExcludePaths возвращает пути (без query), для которых [AccessLogMiddleware] не пишет строку access-лога.
+// Значения берутся из актуального конфига, в том числе после [Ra.ReloadHandler].
+func (ra *Ra) AccessLogExcludePaths() []string {
+	return ra.config.AccessLog.ExcludePaths
 }
 
 func (ra *Ra) loadConfig() (*Config, error) {
@@ -95,7 +101,7 @@ func (ra *Ra) ReloadHandler() (bool, error) {
 	if err := ra.createAccessController(config); err != nil {
 		return false, err
 	}
-	validator, err := kafkarest.NewValidatorFromConfig(config.kafkaRestConfig())
+	validator, err := createBodyValidator(config.validationConfig())
 	if err != nil {
 		return false, err
 	}
@@ -106,6 +112,6 @@ func (ra *Ra) ReloadHandler() (bool, error) {
 
 // BodyValidator возвращает активный валидатор тела (или nil, если он выключен
 // в конфигурации). Используется middleware-слоями (gin/fiber).
-func (ra *Ra) BodyValidator() kafkarest.BodyValidator {
+func (ra *Ra) BodyValidator() validate.BodyValidator {
 	return ra.bodyValidator
 }

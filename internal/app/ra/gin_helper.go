@@ -62,32 +62,53 @@ func (ra *Ra) GetAuthMiddlerware(proxy bool) gin.HandlerFunc {
 		authRequest := ra.GetAuthRequest(c, proxy)
 		err := ra.auth.Validate(authRequest)
 		if err != nil {
-			c.Header("X-RA-ERROR", err.Error())
-			if proxy {
-				// nginx auth_request module doesn't read response body
-				// add only when in proxy mode
-				c.String(http.StatusForbidden, fmt.Sprintf("error: %s", err))
-			}
-			c.AbortWithStatus(http.StatusForbidden)
+			log.Warn().
+				Err(err).
+				Str("request_uri", c.Request.RequestURI).
+				Str("auth_url", authRequest.AuthURL).
+				Str("method", authRequest.Method).
+				Str("user", authRequest.AuthUser).
+				Str("content_type", authRequest.ContentType).
+				Msg("auth rejected")
+			WriteJSONErrorGin(
+				c,
+				http.StatusForbidden,
+				ErrorCodeAuthDenied,
+				"Ra: auth denied",
+				err.Error(),
+				DetailsWithReason(GinTraceID(c), err),
+			)
 			return
 		}
 
 		if ra.bodyValidator != nil && c.Request.Method == http.MethodPost {
 			body, err := readAndRestoreBody(c)
 			if err != nil {
-				c.Header("X-RA-ERROR", err.Error())
-				if proxy {
-					c.String(http.StatusBadRequest, fmt.Sprintf("error: %s", err))
-				}
-				c.AbortWithStatus(http.StatusBadRequest)
+				log.Warn().Err(err).Str("request_uri", c.Request.RequestURI).Msg("read request body failed")
+				WriteJSONErrorGin(
+					c,
+					http.StatusBadRequest,
+					ErrorCodeMalformedBody,
+					"Ra: cannot read request body",
+					err.Error(),
+					DetailsWithReason(GinTraceID(c), err),
+				)
 				return
 			}
-			if err := ra.bodyValidator.Validate(body); err != nil {
-				c.Header("X-RA-ERROR", err.Error())
-				if proxy {
-					c.String(http.StatusBadRequest, fmt.Sprintf("error: %s", err))
-				}
-				c.AbortWithStatus(http.StatusBadRequest)
+			rep := ra.bodyValidator.Validate(body)
+			if rep.HasErrors() {
+				log.Warn().
+					Str("request_uri", c.Request.RequestURI).
+					Str("summary", rep.SummaryLine()).
+					Msg("body validation failed")
+				WriteJSONErrorGin(
+					c,
+					http.StatusUnprocessableEntity,
+					ErrorCodePayloadValidate,
+					"Ra: payload validation errors",
+					rep.SummaryLine(),
+					BuildValidationDetails(rep, GinTraceID(c)),
+				)
 				return
 			}
 		}
@@ -127,6 +148,7 @@ func (ra *Ra) GetProxyHandler() gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 		proxy := httputil.NewSingleHostReverseProxy(remote)
+		proxy.ErrorLog = ReverseProxyErrorLog()
 		proxy.Director = func(req *http.Request) {
 			req.Header = c.Request.Header
 			req.Host = remote.Host
@@ -134,16 +156,22 @@ func (ra *Ra) GetProxyHandler() gin.HandlerFunc {
 			req.URL.Host = remote.Host
 		}
 		proxy.ModifyResponse = func(resp *http.Response) error {
-			var buf bytes.Buffer
-
 			type ErrorResp struct {
 				ErrorCode int    `json:"error_code"`
 				Message   string `json:"message"`
 			}
 			if resp.StatusCode != http.StatusOK {
-				tee := io.TeeReader(resp.Body, &buf)
+				body, readErr := io.ReadAll(resp.Body)
+				if readErr != nil {
+					log.Err(readErr).Msg("cant read proxy response")
+					// Keep proxy path best-effort: return partial data if any.
+					resp.Body = io.NopCloser(bytes.NewReader(body))
+					return nil
+				}
+				resp.Body = io.NopCloser(bytes.NewReader(body))
+
 				er := new(ErrorResp)
-				dec := decoder.NewStreamDecoder(tee)
+				dec := decoder.NewStreamDecoder(bytes.NewReader(body))
 				err := dec.Decode(er)
 				if err == nil {
 					log.Info().
@@ -151,10 +179,14 @@ func (ra *Ra) GetProxyHandler() gin.HandlerFunc {
 						Str("request_uri", c.Request.RequestURI).
 						Str("remote_user", c.MustGet("username").(string)).
 						Msgf("error: %d msg: %s", er.ErrorCode, er.Message)
-					resp.Body = io.NopCloser(&buf)
 					resp.Header.Set("X-Error-Code", fmt.Sprintf("%d", er.ErrorCode))
 				} else {
-					log.Err(err).Msg("cant decode proxy response")
+					// Upstream may return HTML/plain (e.g. python -m http.server 501) — not Confluent JSON.
+					log.Debug().
+						Err(err).
+						Int("status", resp.StatusCode).
+						Str("content_type", resp.Header.Get("Content-Type")).
+						Msg("proxy upstream non-JSON error body (skip decode)")
 				}
 			}
 			return nil
