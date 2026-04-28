@@ -1,6 +1,4 @@
 ---
-version: '3.9'
-
 x-logging:
   &default-logging
   options:
@@ -9,6 +7,7 @@ x-logging:
   driver: json-file
 
 services:
+  # ###########################################################################
   nginx:
     image: "${ORG_PREFIX:-}xcgd/nginx-vts:${NGINX_VERSION:-stable}"
     init: true
@@ -20,7 +19,29 @@ services:
       - 8080:80
     volumes:
       - ./nginx_conf.d:/etc/nginx/conf.d:ro
-  # /////////////////////////////////////////////////////////////////////////////
+  # ###########################################################################
+  akhq:
+    image: tchiotludo/akhq:0.26.0
+    container_name: akhq_dev
+    ports:
+      - 8080:8080
+    environment:
+      JAVA_TOOL_OPTIONS: "-Dcom.sun.management.jmxremote=false"
+      AKHQ_CONFIGURATION: |
+        micronaut:
+          server:
+            context-path: "/akhq"
+        akhq:
+          server:
+            access-log: true
+          connections:
+            local:
+              properties:
+                bootstrap.servers: "kafka:9092"
+              schema-registry:
+                url: "http://schema-registry:8081"
+                type: "confluent" # or "tibco"
+  # ###########################################################################
   ra:
     # Makefile passes RA_VERSION=<public|company> to choose local image variant.
     image:  "${ORG_PREFIX:-}ra:${RA_VERSION:-latest}"
@@ -29,7 +50,7 @@ services:
     init: true
     volumes:
       - ./config.yml:/app/config.yml
-  # /////////////////////////////////////////////////////////////////////////////
+  # ###########################################################################
   zookeeper:
     image: "${ORG_PREFIX:-}confluentinc/cp-zookeeper:${CONFLUENT_VERSION:-7.1.1}"
     hostname: zookeeper
@@ -41,7 +62,7 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-  # /////////////////////////////////////////////////////////////////////////////
+  # ###########################################################################
   broker:
     image: "${ORG_PREFIX:-}confluentinc/cp-kafka:${CONFLUENT_VERSION:-7.1.1}"
     #hostname: ${HOSTNAME:-localhost}
@@ -75,7 +96,7 @@ services:
       KAFKA_SOCKET_RECEIVE_BUFFER_BYTES: 10485760
       KAFKA_SOCKET_SEND_BUFFER_BYTES: 10485760
       KAFKA_JMX_PORT: 39999
-  # ///////////////////////////////////////////////////////////////////////////////////
+  # ###########################################################################
   schema-registry:
     image: "${ORG_PREFIX:-}confluentinc/cp-schema-registry:${CONFLUENT_VERSION:-7.1.1}"
     hostname: schema-registry
@@ -95,11 +116,7 @@ services:
       SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_ORIGIN: "*"
       SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: 'FULL_TRANSITIVE'
       SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 1
-    #logging:
-    #  driver: "json-file"
-    #  options:
-    #    max-size: "512m"
-  # ///////////////////////////////////////////////////////////////////////////////
+  # ###########################################################################
   rest-proxy:
     image: "${ORG_PREFIX:-}confluentinc/cp-kafka-rest:${CONFLUENT_VERSION:-7.1.1}"
     depends_on:

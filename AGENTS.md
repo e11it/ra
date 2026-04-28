@@ -50,6 +50,9 @@
 - Проверки обязаны валидировать JSON-тип значения, а не только его наличие: в поле может прийти любой валидный JSON (число вместо строки и т.п.).
 - Чекеры должны быть композируемыми: родительский чекер сам вызывает подчекеры (например, внутри `meta`), без опоры на порядок и без повторной сериализации payload.
 - Ошибки API для validation-path должны возвращаться структурированным JSON-контрактом (`error_code`, `message`, `details`) вместо `text/plain`-ответов.
+- `gitleaks` держать в pre-commit/pre-push, а не отдельной CI job.
+- Security-проверки не должны сканировать локальные Go-кеши (`.gomodcache`, `.gocache`); анализировать только пакеты проекта.
+- Для Go Docker-образа предпочтителен минимальный static/nonroot runtime с `CGO_ENABLED=0`, если CGO не нужен.
 
 ## Learned Workspace Facts
 
@@ -61,3 +64,6 @@
 - Вариант Docker-сборки (public/company) выбирается через build tag/ENV в едином `docker/RA.Dockerfile`; отдельный `docker/Modules.Dockerfile` удалён.
 - Канонический реестр кодов ошибок RA хранится в `internal/app/ra/error_codes.go` и используется для JSON error contract.
 - OpenAPI поддерживается в `api/openapi/`: `oapi-codegen` генерирует `openapi.gen.go`, а сервер отдает YAML и HTML-документацию.
+- Access-log в Gin поддерживает конфигурируемые исключения технических endpoint через `exclude_paths`; пустой список в YAML переопределяет дефолты configor.
+- Security-профиль использует `gosec`, `govulncheck` и `gitleaks`; для `gosec` нужны исключения `.gomodcache`/`.gocache`, чтобы не обходить локальные кеши.
+- Docker publish для git tags должен использовать GitHub Environment `docker`: username из `vars.DOCKER_USERNAME`, token из `secrets.DOCKERHUB_TOKEN`, образ `e11it/ra:<tag>`.

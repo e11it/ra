@@ -125,3 +125,20 @@ RA возвращает ошибки в JSON-формате (включая `aut
 - `reload failed` → HTTP `400`, `error_code: 40020`
 
 Каноничный список кодов, их природа и значение хранится в `internal/app/ra/error_codes.go`.
+
+
+### DEV
+
+Kafka REST mock server
+
+```sh
+python3 - <<'PY'
+from http.server import HTTPServer, BaseHTTPRequestHandler
+class H(BaseHTTPRequestHandler):
+    def do_POST(self):
+        self.send_response(200)
+        self.end_headers()
+    def log_message(self, *args): pass
+HTTPServer(("127.0.0.1", 9999), H).serve_forever()
+PY
+```

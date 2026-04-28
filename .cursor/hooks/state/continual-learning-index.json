@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "updatedAtMs": 1777071054655,
+  "transcripts": {
+    "e4a75d30-15dd-41ee-859b-67091cdb595e": {
+      "path": "agent-transcripts/e4a75d30-15dd-41ee-859b-67091cdb595e/e4a75d30-15dd-41ee-859b-67091cdb595e.jsonl",
+      "mtimeMs": 1777025327000,
+      "processedAtMs": 1777063914000
+    },
+    "e54b3d13-a856-4ff1-85fc-f37d386d1934": {
+      "path": "agent-transcripts/e54b3d13-a856-4ff1-85fc-f37d386d1934/e54b3d13-a856-4ff1-85fc-f37d386d1934.jsonl",
+      "mtimeMs": 1776778825000,
+      "processedAtMs": 1777063914000
+    },
+    "f718f93f-e289-4926-9c44-6103e89b4152": {
+      "path": "agent-transcripts/f718f93f-e289-4926-9c44-6103e89b4152/f718f93f-e289-4926-9c44-6103e89b4152.jsonl",
+      "mtimeMs": 1777070985891,
+      "processedAtMs": 1777071054655
+    }
+  }
+}

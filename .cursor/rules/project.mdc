@@ -26,7 +26,7 @@ alwaysApply: true
 - `internal/app/ra/` — склейка приложения: `controller.go` (конструктор `Ra`, загрузка/reload конфига), `config.go` (корневая конфигурация), `gin_helper.go`, `fiber_helper.go`.
 - `pkg/auth/` — публичный контракт авторизации (`AccessController`, `AuthRequest`) и ACL-реализация.
 - `pkg/auth/cache/` — обёртка `AccessController` с LRU-кешем.
-- `pkg/kafkarest/` — валидация тела Kafka REST v2 produce-запросов (корпстандарт Avro).
+- `pkg/validate/` — реестр и контракты чекеров тела HTTP-запроса; `pkg/payloadvalidate/` — парсинг тела produce Kafka REST v2 и прогон чекеров; `pkg/validate/common/` — общие чекеры (например `is_tombstone`); `pkg/validate/company/` — корпоративные чекеры (build tag `company`). Подробнее: `docs/packages.md`.
 - `pkg/filepath/` — утилита отслеживания изменений файла конфига по чек-сумме.
 
 ## Верификация после правок

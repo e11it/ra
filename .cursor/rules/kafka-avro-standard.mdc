@@ -1,7 +1,7 @@
 ---
 description: Корпоративный стандарт Kafka-сообщений (Avro) и его применение в ra.
 globs:
-  - "pkg/kafkarest/**"
+  - "pkg/payloadvalidate/**"
   - "internal/app/ra/**"
   - "pkg/auth/**"
 alwaysApply: false
@@ -17,8 +17,9 @@ alwaysApply: false
 2. **Каталог `operation`**: `CREATE`, `UPDATE`, `UPSERT`, `DELETE`, `SNAPSHOT`, `EVENT`. Любые другие значения — отказ.
 3. Для `operation == "EVENT"` допустимо пустое значение `entityKey`.
 4. **`envelope.meta.eventTimeZone` обязателен** и должен быть строкой в формате IANA id (`Europe/Moscow`, `UTC`, `Asia/Yekaterinburg`). Смещения (`+03:00`), аббревиатуры (`MSK`) и пустое значение запрещены.
-5. **Tombstone** — валидный сценарий для compacted-топиков: `{"key": "<entityKey>", "value": null}`. У такой записи нет envelope — её нельзя прогонять через чекеры, проверяющие `meta.*`. Валидатор обязан определять tombstone (по `value: null` / отсутствию value) и пропускать запись без ошибок.
-6. Чекеры должны быть независимыми и компонуемыми. Новый чекер — это тип, реализующий `pkg/kafkarest.RecordChecker`, регистрируемый в `pkg/kafkarest/registry.go`.
+5. **Tombstone** — валидный сценарий для compacted-топиков: `{"key": "<entityKey>", "value": null}`. У такой записи нет envelope — её нельзя прогонять через чекеры, проверяющие `meta.*`. В проекте это делается отдельным чекером `is_tombstone` (pipeline-stop со статусом success), а не спец-логикой protocol-layer.
+6. Чекеры должны быть независимыми и компонуемыми. Новый чекер — это тип, реализующий `pkg/validate.RecordChecker`, регистрируемый через `pkg/validate` registry API.
+7. В ingress-сообщениях запрещено передавать `records[i].partition` (корп-чекер `no_partition`): партиционирование должно следовать ключу `entityKey`.
 
 ## Формат REST v2 produce-запроса
 
@@ -48,4 +49,4 @@ alwaysApply: false
   - `operation` не из каталога.
   - отсутствие или невалидный `eventTimeZone` (не IANA id).
 
-Сообщение об ошибке должно указывать номер записи (`records[i]`) и имя чекера.
+Сообщение об ошибке должно указывать индекс записи (`records[i]`) и path/code причины в агрегированном `Report`.

@@ -39,8 +39,8 @@ docker-logs:
 
 ## docker-publish: publish image to hub.docker.com
 docker-publish:
-	@docker tag ab:latest $(DOCKER_USER)/ra:latest
-	@docker push $(DOCKER_USER)/ra:latest
+	@docker tag $(PROJECTNAME):$(RA_VERSION) $(DOCKER_USER)/ra:$(RA_VERSION)
+	@docker push $(DOCKER_USER)/ra:$(RA_VERSION)
 
 ## docker-clean: clean dangling images with label 'autodelete'
 docker-clean:
