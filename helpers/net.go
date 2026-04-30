@@ -1,17 +1,19 @@
 package helpers
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/url"
 	"time"
 )
 
-func IsAlive(url *url.URL) error {
-	conn, err := net.DialTimeout("tcp", url.Host, time.Minute)
+func IsAlive(targetURL *url.URL) error {
+	dialer := net.Dialer{Timeout: time.Minute}
+	conn, err := dialer.DialContext(context.Background(), "tcp", targetURL.Host)
 	if err != nil {
-		return fmt.Errorf("Unreachable to %v, error: %v", url.Host, err.Error())
+		return fmt.Errorf("unreachable to %v, error: %v", targetURL.Host, err.Error())
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	return nil
 }

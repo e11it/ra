@@ -3,8 +3,9 @@ package vcheck
 import (
 	"testing"
 
-	"github.com/e11it/ra/pkg/validate"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/e11it/ra/pkg/validate"
 )
 
 func TestAsString(t *testing.T) {

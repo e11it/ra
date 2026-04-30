@@ -13,9 +13,10 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/bytedance/sonic/decoder"
+	"github.com/gin-gonic/gin"
+
 	"github.com/e11it/ra/helpers"
 	"github.com/e11it/ra/pkg/auth"
-	"github.com/gin-gonic/gin"
 )
 
 // readAndRestoreBody читает тело запроса целиком и восстанавливает его,
@@ -147,49 +148,49 @@ func (ra *Ra) GetProxyHandler() gin.HandlerFunc {
 	log.Info().Msgf("Enable proxy to %s", remote.String())
 
 	return func(c *gin.Context) {
-		proxy := httputil.NewSingleHostReverseProxy(remote)
-		proxy.ErrorLog = ReverseProxyErrorLog()
-		proxy.Director = func(req *http.Request) {
-			req.Header = c.Request.Header
-			req.Host = remote.Host
-			req.URL.Scheme = remote.Scheme
-			req.URL.Host = remote.Host
-		}
-		proxy.ModifyResponse = func(resp *http.Response) error {
-			type ErrorResp struct {
-				ErrorCode int    `json:"error_code"`
-				Message   string `json:"message"`
-			}
-			if resp.StatusCode != http.StatusOK {
-				body, readErr := io.ReadAll(resp.Body)
-				if readErr != nil {
-					log.Err(readErr).Msg("cant read proxy response")
-					// Keep proxy path best-effort: return partial data if any.
+		proxy := &httputil.ReverseProxy{
+			ErrorLog: ReverseProxyErrorLog(),
+			Rewrite: func(pr *httputil.ProxyRequest) {
+				pr.SetURL(remote)
+				pr.Out.Header = pr.In.Header.Clone()
+				pr.Out.Host = remote.Host
+			},
+			ModifyResponse: func(resp *http.Response) error {
+				type ErrorResp struct {
+					ErrorCode int    `json:"error_code"`
+					Message   string `json:"message"`
+				}
+				if resp.StatusCode != http.StatusOK {
+					body, readErr := io.ReadAll(resp.Body)
+					if readErr != nil {
+						log.Err(readErr).Msg("cant read proxy response")
+						// Keep proxy path best-effort: return partial data if any.
+						resp.Body = io.NopCloser(bytes.NewReader(body))
+						return nil
+					}
 					resp.Body = io.NopCloser(bytes.NewReader(body))
-					return nil
-				}
-				resp.Body = io.NopCloser(bytes.NewReader(body))
 
-				er := new(ErrorResp)
-				dec := decoder.NewStreamDecoder(bytes.NewReader(body))
-				err := dec.Decode(er)
-				if err == nil {
-					log.Info().
-						Str("x-request-id", c.MustGet("x-request-id").(string)).
-						Str("request_uri", c.Request.RequestURI).
-						Str("remote_user", c.MustGet("username").(string)).
-						Msgf("error: %d msg: %s", er.ErrorCode, er.Message)
-					resp.Header.Set("X-Error-Code", fmt.Sprintf("%d", er.ErrorCode))
-				} else {
-					// Upstream may return HTML/plain (e.g. python -m http.server 501) — not Confluent JSON.
-					log.Debug().
-						Err(err).
-						Int("status", resp.StatusCode).
-						Str("content_type", resp.Header.Get("Content-Type")).
-						Msg("proxy upstream non-JSON error body (skip decode)")
+					er := new(ErrorResp)
+					dec := decoder.NewStreamDecoder(bytes.NewReader(body))
+					err := dec.Decode(er)
+					if err == nil {
+						log.Info().
+							Str("x-request-id", c.MustGet("x-request-id").(string)).
+							Str("request_uri", c.Request.RequestURI).
+							Str("remote_user", c.MustGet("username").(string)).
+							Msgf("error: %d msg: %s", er.ErrorCode, er.Message)
+						resp.Header.Set("X-Error-Code", fmt.Sprintf("%d", er.ErrorCode))
+					} else {
+						// Upstream may return HTML/plain (e.g. python -m http.server 501) — not Confluent JSON.
+						log.Debug().
+							Err(err).
+							Int("status", resp.StatusCode).
+							Str("content_type", resp.Header.Get("Content-Type")).
+							Msg("proxy upstream non-JSON error body (skip decode)")
+					}
 				}
-			}
-			return nil
+				return nil
+			},
 		}
 
 		proxy.ServeHTTP(c.Writer, c.Request)

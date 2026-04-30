@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/bytedance/sonic"
+
 	"github.com/e11it/ra/pkg/validate"
 	"github.com/e11it/ra/pkg/validate/vcheck"
 )
@@ -21,7 +22,11 @@ func newEntityKeyCheck(_ validate.Config) (validate.RecordChecker, error) {
 
 func (c *entityKeyCheck) Name() string { return entityKeyCheckName }
 
-func (c *entityKeyCheck) Check(ctx *validate.CheckContext, rec *validate.Record, rep *validate.Report) validate.Control {
+func (c *entityKeyCheck) Check(
+	ctx *validate.CheckContext,
+	rec *validate.Record,
+	rep *validate.Report,
+) validate.Control {
 	pr, ok := parseRecord(ctx, rep)
 	if !ok {
 		return validate.StopRecord
@@ -31,11 +36,19 @@ func (c *entityKeyCheck) Check(ctx *validate.CheckContext, rec *validate.Record,
 		return validate.StopRecord
 	}
 
-	entityRaw, ok := vcheck.RequireField(rep, ctx.Index, vcheck.PathIndex(ctx.Index, "envelope.meta"), pr.meta, "entityKey")
+	metaPath := vcheck.PathIndex(ctx.Index, "envelope.meta")
+	entityRaw, ok := vcheck.RequireField(
+		rep,
+		ctx.Index,
+		metaPath,
+		pr.meta,
+		"entityKey",
+	)
 	if !ok {
 		return validate.StopRecord
 	}
-	entityKey, ok := vcheck.AsString(rep, ctx.Index, vcheck.PathIndex(ctx.Index, "envelope.meta.entityKey"), entityRaw)
+	entityKeyPath := vcheck.PathIndex(ctx.Index, "envelope.meta.entityKey")
+	entityKey, ok := vcheck.AsString(rep, ctx.Index, entityKeyPath, entityRaw)
 	if !ok {
 		return validate.StopRecord
 	}

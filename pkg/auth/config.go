@@ -1,6 +1,6 @@
 package auth
 
-// Консигурация
+// Конфигурация
 type Config struct {
 	Prefix              string
 	URLValidReg         string

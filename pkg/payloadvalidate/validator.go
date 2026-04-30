@@ -4,6 +4,7 @@ import (
 	"bytes"
 
 	"github.com/bytedance/sonic"
+
 	"github.com/e11it/ra/pkg/validate"
 )
 

@@ -8,17 +8,18 @@ x-logging:
 
 services:
   # ###########################################################################
-  nginx:
-    image: "${ORG_PREFIX:-}xcgd/nginx-vts:${NGINX_VERSION:-stable}"
-    init: true
-    restart: always
-    logging: *default-logging
-    depends_on:
-      - ra
-    ports:
-      - 8080:80
-    volumes:
-      - ./nginx_conf.d:/etc/nginx/conf.d:ro
+  # nginx:
+  #   image: "${ORG_PREFIX:-}xcgd/nginx-vts:${NGINX_VERSION:-stable}"
+  #   init: true
+  #   restart: always
+  #   logging: *default-logging
+  #   #depends_on:
+  #   #  ra:
+  #   #    condition: service_healthy
+  #   ports:
+  #     - 8080:80
+  #   volumes:
+  #     - ./nginx_conf.d:/etc/nginx/conf.d:ro
   # ###########################################################################
   akhq:
     image: tchiotludo/akhq:0.26.0
@@ -42,17 +43,23 @@ services:
                 url: "http://schema-registry:8081"
                 type: "confluent" # or "tibco"
   # ###########################################################################
-  ra:
-    # Makefile passes RA_VERSION=<public|company> to choose local image variant.
-    image:  "${ORG_PREFIX:-}ra:${RA_VERSION:-latest}"
-    restart: always
-    logging: *default-logging
-    init: true
-    volumes:
-      - ./config.yml:/app/config.yml
+  #ra:
+  #  # Makefile passes RA_VERSION=<public|company> to choose local image variant.
+  #  image:  "${ORG_PREFIX:-e11it/}ra:${RA_VERSION:-v3}"
+  #  restart: always
+  #  logging: *default-logging
+  #  init: true
+  #  healthcheck:
+  #    test: [ "CMD", "/app/bin/ra", "-healthcheck" ]
+  #    interval: 15s
+  #    timeout: 3s
+  #    start_period: 10s
+  #    retries: 3
+  #  volumes:
+  #    - ./config.yml:/app/config.yml
   # ###########################################################################
   zookeeper:
-    image: "${ORG_PREFIX:-}confluentinc/cp-zookeeper:${CONFLUENT_VERSION:-7.1.1}"
+    image: "${ORG_PREFIX:-}confluentinc/cp-zookeeper:${CONFLUENT_VERSION:-7.7.1}"
     hostname: zookeeper
     container_name: zookeeper
     init: true
@@ -64,7 +71,7 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
   # ###########################################################################
   broker:
-    image: "${ORG_PREFIX:-}confluentinc/cp-kafka:${CONFLUENT_VERSION:-7.1.1}"
+    image: "${ORG_PREFIX:-}confluentinc/cp-kafka:${CONFLUENT_VERSION:-7.7.1}"
     #hostname: ${HOSTNAME:-localhost}
     #container_name: ${HOSTNAME:-localhost}
     restart: always
@@ -98,7 +105,7 @@ services:
       KAFKA_JMX_PORT: 39999
   # ###########################################################################
   schema-registry:
-    image: "${ORG_PREFIX:-}confluentinc/cp-schema-registry:${CONFLUENT_VERSION:-7.1.1}"
+    image: "${ORG_PREFIX:-}confluentinc/cp-schema-registry:${CONFLUENT_VERSION:-8.1.2}"
     hostname: schema-registry
     container_name: schema-registry
     init: true
@@ -118,12 +125,13 @@ services:
       SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 1
   # ###########################################################################
   rest-proxy:
-    image: "${ORG_PREFIX:-}confluentinc/cp-kafka-rest:${CONFLUENT_VERSION:-7.1.1}"
+    image: "${ORG_PREFIX:-}confluentinc/cp-kafka-rest:${CONFLUENT_VERSION:-8.1.2}"
+    ports:
+      - 8082:8082
     depends_on:
       - zookeeper
       - broker
       - schema-registry
-      - nginx
     init: true
     logging: *default-logging
     restart: always

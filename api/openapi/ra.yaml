@@ -76,7 +76,33 @@ paths:
             text/plain:
               schema:
                 type: string
-  /api/openapi/ra.yaml:
+  /health:
+    get:
+      summary: Liveness probe
+      responses:
+        "200":
+          description: Process is alive
+          content:
+            text/plain:
+              schema:
+                type: string
+  /ready:
+    get:
+      summary: Readiness probe
+      responses:
+        "200":
+          description: Service is ready
+          content:
+            text/plain:
+              schema:
+                type: string
+        "503":
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /swagger/ra.yaml:
     get:
       summary: OpenAPI specification (YAML)
       responses:
@@ -86,7 +112,7 @@ paths:
             application/yaml:
               schema:
                 type: string
-  /api/openapi:
+  /swagger:
     get:
       summary: Swagger UI HTML
       responses:

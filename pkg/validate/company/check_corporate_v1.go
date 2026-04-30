@@ -34,7 +34,11 @@ func newCorporateV1Check(cfg validate.Config) (validate.RecordChecker, error) {
 
 func (c *corporateV1Check) Name() string { return corporateV1CheckName }
 
-func (c *corporateV1Check) Check(ctx *validate.CheckContext, rec *validate.Record, rep *validate.Report) validate.Control {
+func (c *corporateV1Check) Check(
+	ctx *validate.CheckContext,
+	rec *validate.Record,
+	rep *validate.Report,
+) validate.Control {
 	for _, check := range c.checks {
 		ctrl := check.Check(ctx, rec, rep)
 		if ctrl != validate.Continue {

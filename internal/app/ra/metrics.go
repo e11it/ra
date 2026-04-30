@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gofiber/fiber/v3"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -101,25 +100,6 @@ func (m *Metrics) GinMiddleware() gin.HandlerFunc {
 
 		m.observeRequest("gin", method, route, status, c.Writer.Header().Get("X-RA-ERROR"))
 		m.httpDuration.WithLabelValues("gin", method, route).Observe(time.Since(start).Seconds())
-	}
-}
-
-// FiberMiddleware records HTTP metrics for Fiber handlers.
-func (m *Metrics) FiberMiddleware() fiber.Handler {
-	return func(c fiber.Ctx) error {
-		m.httpInFlight.Inc()
-		start := time.Now()
-		err := c.Next()
-		m.httpInFlight.Dec()
-
-		route := c.Route().Path
-		if route == "" {
-			route = "unknown"
-		}
-		status := c.Response().StatusCode()
-		m.observeRequest("fiber", c.Method(), route, status, c.GetRespHeader("X-RA-ERROR"))
-		m.httpDuration.WithLabelValues("fiber", c.Method(), route).Observe(time.Since(start).Seconds())
-		return err
 	}
 }
 

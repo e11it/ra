@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -12,30 +13,59 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/e11it/ra/helpers"
 	RA "github.com/e11it/ra/internal/app/ra"
-	"github.com/gin-gonic/gin"
 )
 
-func init() {
-	// log.SetFormatter(&log.JSONFormatter{})
-	// log.SetLevel(log.DebugLevel)
+func main() {
+	if runHealthcheckMode() {
+		return
+	}
+	runServer()
 }
 
-func main() {
+func runHealthcheckMode() bool {
+	healthcheckMode := flag.Bool("healthcheck", false, "run readiness probe and exit")
+	healthcheckURL := flag.String("healthcheck-url", "", "readiness probe URL override")
+	flag.Parse()
+	if *healthcheckMode {
+		targetURL := resolveHealthcheckURL(*healthcheckURL)
+		if err := runHealthcheck(targetURL, 2*time.Second); err != nil {
+			log.Error().Err(err).Str("url", targetURL).Msg("healthcheck failed")
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+	return false
+}
+
+func runServer() {
 	ra, err := RA.NewRA(helpers.GetEnv("RA_CONFIG_FILE", "config.yml"))
 	if err != nil {
 		log.Err(err).Msg("config load error")
 		os.Exit(1)
 	}
 	metrics := RA.NewMetrics()
+	router := buildRouter(ra, metrics)
+	srv := &http.Server{
+		Addr:              ra.GetServerAddr(),
+		Handler:           router,
+		ReadHeaderTimeout: 3 * time.Second,
+		ErrorLog:          RA.HTTPServerErrorLog(),
+	}
+	startServer(srv, ra.GetServerAddr())
+	waitForShutdownSignals(srv, ra)
+}
+
+func buildRouter(ra *RA.Ra, metrics *RA.Metrics) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(metrics.GinMiddleware())
 	router.Use(RA.ErrAbortHandlerSilenceMiddleware())
 	router.Use(RA.AccessLogMiddleware(ra.AccessLogExcludePaths()))
-	// router.Use(helpers.DebugLogger())
 
 	router.GET("/auth",
 		RA.GetUUIDMiddlerware(),
@@ -51,7 +81,21 @@ func main() {
 			ra.GetProxyHandler())
 	}
 
-	router.GET("/reload", func(c *gin.Context) {
+	router.GET("/reload", buildReloadHandler(ra, metrics))
+	router.GET("/metrics", gin.WrapH(metrics.Handler()))
+	router.GET("/health", ra.HandleHealthGin)
+	router.GET("/ready", ra.HandleReadyGin)
+	router.GET("/swagger/ra.yaml", func(c *gin.Context) {
+		c.File(resolveOpenAPIFile("ra.yaml"))
+	})
+	router.GET("/swagger", func(c *gin.Context) {
+		c.File(resolveOpenAPIFile("index.html"))
+	})
+	return router
+}
+
+func buildReloadHandler(ra *RA.Ra, metrics *RA.Metrics) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		reloaded, err := ra.ReloadHandler()
 		if err != nil {
 			metrics.ObserveReload("error")
@@ -74,36 +118,20 @@ func main() {
 			log.Info().Msg("config not changed")
 			c.String(http.StatusNotModified, "config not changed")
 		}
-	})
-	router.GET("/metrics", gin.WrapH(metrics.Handler()))
-	router.GET("/api/openapi/ra.yaml", func(c *gin.Context) {
-		c.File(resolveOpenAPIFile("ra.yaml"))
-	})
-	router.GET("/api/openapi", func(c *gin.Context) {
-		c.File(resolveOpenAPIFile("index.html"))
-	})
-
-	srv := &http.Server{
-		Addr:              ra.GetServerAddr(),
-		Handler:           router,
-		ReadHeaderTimeout: 3 * time.Second,
-		ErrorLog:          RA.HTTPServerErrorLog(),
 	}
-	log.Info().Msgf("Starting server on: %s", ra.GetServerAddr())
-	// Initializing the server in a goroutine so that
-	// it won't block the graceful shutdown handling below
+}
+
+func startServer(srv *http.Server, addr string) {
+	log.Info().Msgf("Starting server on: %s", addr)
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatal().Msgf("listen: %s\n", err)
 		}
 	}()
+}
 
-	// Wait for interrupt signal to gracefully shutdown the server with
-	// a timeout of 5 seconds.
+func waitForShutdownSignals(srv *http.Server, ra *RA.Ra) {
 	quit := make(chan os.Signal, 1)
-	// kill (no param) default send syscall.SIGTERM
-	// kill -2 is syscall.SIGINT
-	// kill -9 is syscall.SIGKILL but can't be catch, so don't need add it
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 	for {
 		s, ok := <-quit
@@ -119,17 +147,15 @@ func main() {
 		case syscall.SIGINT, syscall.SIGTERM:
 			log.Info().Msg("shuting down server...")
 
-			// The context is used to inform the server it has 5 seconds to finish
-			// the request it is currently handling
 			timeout, err := time.ParseDuration(fmt.Sprintf("%ds", ra.GetShutdownTimeout()))
 			if err != nil {
 				timeout = 5 * time.Second
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			defer cancel()
 			if err := srv.Shutdown(ctx); err != nil {
 				log.Error().Msgf("server forced to shutdown: %s", err.Error())
 			}
+			cancel()
 
 			log.Info().Msg("server exiting")
 			return

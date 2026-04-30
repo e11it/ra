@@ -11,6 +11,8 @@ const payloadCheckName = "payload"
 
 type payloadCheck struct{}
 
+const opMismatchCode = "operation_payload_mismatch"
+
 func newPayloadCheck(_ validate.Config) (validate.RecordChecker, error) {
 	return &payloadCheck{}, nil
 }
@@ -40,23 +42,53 @@ func (c *payloadCheck) Check(ctx *validate.CheckContext, _ *validate.Record, rep
 			}
 		}
 	}
+	c.checkOperationPayload(ctx, rep, op, pr.payload == nil, pr.before != nil)
+	return validate.Continue
+}
+
+func (c *payloadCheck) checkOperationPayload(
+	ctx *validate.CheckContext,
+	rep *validate.Report,
+	op string,
+	payloadNil bool,
+	beforePresent bool,
+) {
 	switch op {
 	case operationCreate, operationSnapshot:
-		if pr.payload == nil {
-			rep.AddWarning(ctx.Index, vcheck.PathIndex(ctx.Index, "payload"), "operation_payload_mismatch", "payload should be non-null for operation "+op)
+		if payloadNil {
+			rep.AddWarning(
+				ctx.Index,
+				vcheck.PathIndex(ctx.Index, "payload"),
+				opMismatchCode,
+				"payload should be non-null for operation "+op,
+			)
 		}
 	case operationUpdate, operationUpsert:
-		if pr.payload == nil {
-			rep.AddWarning(ctx.Index, vcheck.PathIndex(ctx.Index, "payload"), "operation_payload_mismatch", "payload should be non-null for operation "+op)
+		if payloadNil {
+			rep.AddWarning(
+				ctx.Index,
+				vcheck.PathIndex(ctx.Index, "payload"),
+				opMismatchCode,
+				"payload should be non-null for operation "+op,
+			)
 		}
 	case operationDelete:
-		if pr.payload != nil {
-			rep.AddWarning(ctx.Index, vcheck.PathIndex(ctx.Index, "payload"), "operation_payload_mismatch", "payload should be null for DELETE")
+		if !payloadNil {
+			rep.AddWarning(
+				ctx.Index,
+				vcheck.PathIndex(ctx.Index, "payload"),
+				opMismatchCode,
+				"payload should be null for DELETE",
+			)
 		}
 	case operationEvent:
-		if pr.before != nil {
-			rep.AddWarning(ctx.Index, vcheck.PathIndex(ctx.Index, "payloadBefore"), "operation_payload_mismatch", "payloadBefore should be null for EVENT")
+		if beforePresent {
+			rep.AddWarning(
+				ctx.Index,
+				vcheck.PathIndex(ctx.Index, "payloadBefore"),
+				opMismatchCode,
+				"payloadBefore should be null for EVENT",
+			)
 		}
 	}
-	return validate.Continue
 }

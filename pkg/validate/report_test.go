@@ -9,10 +9,10 @@ import (
 
 func TestReport_AsError(t *testing.T) {
 	rep := NewReport()
-	require.Nil(t, rep.AsError())
+	require.NoError(t, rep.AsError())
 
 	rep.AddWarning(0, "records[0].x", "warn", "test warning")
-	require.Nil(t, rep.AsError())
+	require.NoError(t, rep.AsError())
 
 	rep.AddError(1, "records[1].y", "bad", "test error")
 	require.Error(t, rep.AsError())

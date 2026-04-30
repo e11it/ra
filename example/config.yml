@@ -2,7 +2,7 @@ trimurlprefix: /topics/
 # Список [http.Request.URL.Path] (без query), для которых не пишется access-лог (Gin).
 # По умолчанию — технические endpoint'ы; переопредели, если нужен полный access-лог.
 access_log:
-  exclude_paths: [/metrics, /health, /ready, /api/openapi, /api/openapi/ra.yaml]
+  exclude_paths: [/metrics, /health, /ready, /swagger, /swagger/ra.yaml]
 proxy:
   enabled: true
   proxyhost: "http://127.0.0.1:9999"

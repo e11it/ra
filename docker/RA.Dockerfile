@@ -36,4 +36,5 @@ WORKDIR /app
 
 COPY --from=build /app/ra /app/bin/ra
 COPY --from=build /app/api/openapi /app/api/openapi
+HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 CMD ["/app/bin/ra", "-healthcheck"]
 CMD ["/app/bin/ra"]

@@ -67,7 +67,7 @@ func fileChecksum(filePath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	_, err = io.Copy(fileHash, file)
 	if err != nil {
 		return "", err

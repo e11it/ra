@@ -8,11 +8,12 @@ import "net/http"
 //
 // Keep these constants as a single source of truth for API contract.
 const (
-	ErrorCodeAuthDenied      = 40301
-	ErrorCodeMalformedBody   = 40010
-	ErrorCodePayloadValidate = 42230
-	ErrorCodeReloadForbidden = 40310
-	ErrorCodeReloadFailed    = 40020
+	ErrorCodeAuthDenied       = 40301
+	ErrorCodeMalformedBody    = 40010
+	ErrorCodePayloadValidate  = 42230
+	ErrorCodeReloadForbidden  = 40310
+	ErrorCodeReloadFailed     = 40020
+	ErrorCodeReadyUnavailable = 50310
 )
 
 type ErrorNature string
@@ -22,6 +23,7 @@ const (
 	ErrorNatureMalformed  ErrorNature = "malformed_request"
 	ErrorNatureValidation ErrorNature = "payload_validation"
 	ErrorNatureConfig     ErrorNature = "config_reload"
+	ErrorNatureRuntime    ErrorNature = "runtime"
 	ErrorNatureUnknown    ErrorNature = "unknown"
 )
 
@@ -56,6 +58,11 @@ var errorCodeMeta = map[int]ErrorCodeMeta{
 		HTTPStatus: http.StatusBadRequest,
 		Nature:     ErrorNatureConfig,
 		Meaning:    "config reload failed due to invalid input/state",
+	},
+	ErrorCodeReadyUnavailable: {
+		HTTPStatus: http.StatusServiceUnavailable,
+		Nature:     ErrorNatureRuntime,
+		Meaning:    "service is not ready to accept traffic",
 	},
 }
 

@@ -7,7 +7,6 @@ import (
 
 	"github.com/e11it/ra/pkg/validate"
 	"github.com/gin-gonic/gin"
-	"github.com/gofiber/fiber/v3"
 )
 
 type RAErrorResponse struct {
@@ -51,7 +50,12 @@ func BuildValidationDetails(rep *validate.Report, traceID string) RAErrorDetails
 	return details
 }
 
-func WriteJSONErrorGin(c *gin.Context, statusCode, errorCode int, message, headerSummary string, details RAErrorDetails) {
+func WriteJSONErrorGin(
+	c *gin.Context,
+	statusCode, errorCode int,
+	message, headerSummary string,
+	details RAErrorDetails,
+) {
 	summary := strings.TrimSpace(headerSummary)
 	if summary == "" {
 		summary = message
@@ -67,21 +71,6 @@ func WriteJSONErrorGin(c *gin.Context, statusCode, errorCode int, message, heade
 	c.Abort()
 }
 
-func WriteJSONErrorFiber(c fiber.Ctx, statusCode, errorCode int, message, headerSummary string, details RAErrorDetails) error {
-	summary := strings.TrimSpace(headerSummary)
-	if summary == "" {
-		summary = message
-	}
-	if summary != "" {
-		c.Set("X-RA-ERROR", summary)
-	}
-	return c.Status(statusCode).JSON(RAErrorResponse{
-		ErrorCode: errorCode,
-		Message:   message,
-		Details:   details,
-	})
-}
-
 func GinTraceID(c *gin.Context) string {
 	if rid, ok := c.Get("x-request-id"); ok {
 		if s, ok := rid.(string); ok {
@@ -89,10 +78,6 @@ func GinTraceID(c *gin.Context) string {
 		}
 	}
 	return c.GetHeader("X-Request-ID")
-}
-
-func FiberTraceID(c fiber.Ctx) string {
-	return c.Get("X-Request-ID")
 }
 
 func StatusForErrorCode(errorCode int) int {

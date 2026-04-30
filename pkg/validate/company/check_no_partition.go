@@ -17,7 +17,11 @@ func newNoPartitionCheck(_ validate.Config) (validate.RecordChecker, error) {
 
 func (c *noPartitionCheck) Name() string { return noPartitionCheckName }
 
-func (c *noPartitionCheck) Check(ctx *validate.CheckContext, rec *validate.Record, rep *validate.Report) validate.Control {
+func (c *noPartitionCheck) Check(
+	ctx *validate.CheckContext,
+	rec *validate.Record,
+	rep *validate.Report,
+) validate.Control {
 	if rec != nil && rec.Partition != nil {
 		rep.AddError(
 			ctx.Index,

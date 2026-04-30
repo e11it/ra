@@ -39,27 +39,27 @@ func (c *Config) getAclRulesCompiled() []*aclRuleCompilded {
 	return aclList
 }
 
-func arrayToMap(in []string) (rez map[string]bool, any bool) {
-	any = false
+func arrayToMap(in []string) (rez map[string]bool, hasAny bool) {
+	hasAny = false
 	rez = make(map[string]bool, len(in))
 
 	for _, key := range in {
 		rez[key] = true
 		if strings.EqualFold(key, "any") {
-			any = true
+			hasAny = true
 		}
 	}
 	return
 }
 
-func arrayToMapLower(in []string) (rez map[string]bool, any bool) {
-	any = false
+func arrayToMapLower(in []string) (rez map[string]bool, hasAny bool) {
+	hasAny = false
 	rez = make(map[string]bool, len(in))
 
 	for _, key := range in {
 		rez[strings.ToLower(key)] = true
 		if strings.EqualFold(key, "any") {
-			any = true
+			hasAny = true
 		}
 	}
 	return
@@ -71,13 +71,13 @@ func (ac *aclRuleCompilded) IsURLMatch(url string) bool {
 
 func (ac *aclRuleCompilded) IsAllow(content_type, username, method string) error {
 	if _, ok := ac.Users[username]; !ok && !ac.AnyUsers {
-		return fmt.Errorf("Username not allowed")
+		return fmt.Errorf("username not allowed")
 	}
 	if _, ok := ac.Methods[strings.ToLower(method)]; !ok && !ac.AnyMethods {
-		return fmt.Errorf("Method not allowed")
+		return fmt.Errorf("method not allowed")
 	}
 	if _, ok := ac.ContentType[strings.ToLower(content_type)]; !ok && !ac.AnyContentType {
-		return fmt.Errorf("Content-Type not allowed")
+		return fmt.Errorf("content-type not allowed")
 	}
 	return nil
 }

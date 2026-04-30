@@ -1,8 +1,9 @@
 package cache
 
 import (
-	"github.com/e11it/ra/pkg/auth"
 	lru "github.com/hashicorp/golang-lru"
+
+	"github.com/e11it/ra/pkg/auth"
 )
 
 type AccessControllerWithCache struct {

@@ -2,6 +2,7 @@ package ra
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -19,14 +20,14 @@ func TestBuildAccessLogExcludeSet(t *testing.T) {
 		" /metrics ",
 		"/health",
 		"",
-		"/api/openapi/ra.yaml",
+		"/swagger/ra.yaml",
 	})
 	require.NotNil(t, m)
 	_, ok := m["/metrics"]
 	assert.True(t, ok)
 	_, ok = m["/health"]
 	assert.True(t, ok)
-	_, ok = m["/api/openapi/ra.yaml"]
+	_, ok = m["/swagger/ra.yaml"]
 	assert.True(t, ok)
 }
 
@@ -54,26 +55,26 @@ func TestAccessLogMiddleware_ExcludedPathSkipsLog(t *testing.T) {
 	t.Cleanup(func() { log.Logger = prev })
 
 	r := gin.New()
-	r.Use(AccessLogMiddleware([]string{"/metrics", "/api/openapi"}))
+	r.Use(AccessLogMiddleware([]string{"/metrics", "/swagger"}))
 	r.GET("/ok", func(c *gin.Context) { c.Status(http.StatusOK) })
 	r.GET("/metrics", func(c *gin.Context) { c.Status(http.StatusOK) })
-	r.GET("/api/openapi", func(c *gin.Context) { c.Status(http.StatusOK) })
+	r.GET("/swagger", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	// /ok — access line.
 	buf.Reset()
-	req := httptest.NewRequest(http.MethodGet, "/ok", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/ok", nil)
 	r.ServeHTTP(httptest.NewRecorder(), req)
 	assert.Contains(t, buf.String(), "http request")
 
 	// /metrics?x=1 — тот же path для фильтра, access-лог не пишем.
 	buf.Reset()
-	req2 := httptest.NewRequest(http.MethodGet, "/metrics?x=1", nil)
+	req2 := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/metrics?x=1", nil)
 	r.ServeHTTP(httptest.NewRecorder(), req2)
 	assert.NotContains(t, buf.String(), "http request")
 
-	// /api/openapi/ — [path.Clean] совпадает с /api/openapi
+	// /swagger/ — [path.Clean] совпадает с /swagger
 	buf.Reset()
-	req3 := httptest.NewRequest(http.MethodGet, "/api/openapi/", nil)
+	req3 := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/swagger/", nil)
 	r.ServeHTTP(httptest.NewRecorder(), req3)
 	assert.NotContains(t, buf.String(), "http request")
 }

@@ -3,9 +3,10 @@ package payloadvalidate
 import (
 	"testing"
 
-	"github.com/e11it/ra/pkg/validate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/e11it/ra/pkg/validate"
 )
 
 type recordSpyCheck struct {

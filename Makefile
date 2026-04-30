@@ -56,12 +56,12 @@ go-download:
 	@go mod download
 
 go-lint-install:
-	#@mkdir bin
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.50.1
+	@mkdir -p ./bin
+	@GOBIN="$$(pwd)/bin" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4
 
 go-lint:
 	./bin/golangci-lint version
-	#./bin/golangci-lint run
+	./bin/golangci-lint run --timeout=5m --config=.golangci.yml ./...
 
 ## openapi-gen: Generate OpenAPI models/embedded spec via oapi-codegen
 openapi-gen:

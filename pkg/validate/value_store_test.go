@@ -19,7 +19,7 @@ func TestValueStore_RootAndCache(t *testing.T) {
 	root, ok, err := s.Root()
 	require.NoError(t, err)
 	require.True(t, ok)
-	assert.Equal(t, float64(1), root["x"])
+	assert.InDelta(t, 1, root["x"], 0.000001)
 
 	called := 0
 	v1, err := s.Cached("key", func() (any, error) {

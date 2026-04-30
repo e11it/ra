@@ -111,7 +111,7 @@ func (ra *Ra) ReloadHandler() (bool, error) {
 }
 
 // BodyValidator возвращает активный валидатор тела (или nil, если он выключен
-// в конфигурации). Используется middleware-слоями (gin/fiber).
+// в конфигурации). Используется middleware-слоями Gin.
 func (ra *Ra) BodyValidator() validate.BodyValidator {
 	return ra.bodyValidator
 }

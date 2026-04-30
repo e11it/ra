@@ -12,7 +12,6 @@ alwaysApply: true
 - Язык: Go `1.26.2`, модуль `github.com/e11it/ra`.
 - Фреймворки HTTP:
   - Gin — основная точка входа `main.go` (`auth_request` + proxy-режим `/topics/*proxyPath`).
-  - Fiber v2 — альтернативная точка входа `cmd/ra-fiber/main.go` (только `auth_request`).
 - Конфигурация: `github.com/jinzhu/configor` + YAML. Значения по умолчанию задаются тегами `default:"..."` на полях структуры.
 - Логирование: `github.com/rs/zerolog` — основной логгер. `logrus` остался только в тестах для подавления вывода и не используется в новом коде.
 - JSON: `github.com/bytedance/sonic` для hot-path (сериализация/декодирование в proxy-ветке и в валидаторе тела Kafka REST). `encoding/json` допустим в тестах и в конфигурации.
@@ -22,8 +21,7 @@ alwaysApply: true
 ## Точки входа и модули
 
 - `main.go` — Gin HTTP server.
-- `cmd/ra-fiber/main.go` — Fiber HTTP server.
-- `internal/app/ra/` — склейка приложения: `controller.go` (конструктор `Ra`, загрузка/reload конфига), `config.go` (корневая конфигурация), `gin_helper.go`, `fiber_helper.go`.
+- `internal/app/ra/` — склейка приложения: `controller.go` (конструктор `Ra`, загрузка/reload конфига), `config.go` (корневая конфигурация), `gin_helper.go`.
 - `pkg/auth/` — публичный контракт авторизации (`AccessController`, `AuthRequest`) и ACL-реализация.
 - `pkg/auth/cache/` — обёртка `AccessController` с LRU-кешем.
 - `pkg/validate/` — реестр и контракты чекеров тела HTTP-запроса; `pkg/payloadvalidate/` — парсинг тела produce Kafka REST v2 и прогон чекеров; `pkg/validate/common/` — общие чекеры (например `is_tombstone`); `pkg/validate/company/` — корпоративные чекеры (build tag `company`). Подробнее: `docs/packages.md`.

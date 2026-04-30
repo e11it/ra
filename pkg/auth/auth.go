@@ -37,8 +37,6 @@ func NewSimpleAccessController(c *Config) (AccessController, error) {
 func (a *SimpleAccessController) makeChecks(cfg *Config) {
 	a.checks = make([]authCheck, 0)
 	a.addCheck(a.getURLValidReg(cfg))
-	// Last
-	// a.addCheck(a.getContentTypeValidReg(cfg))
 	acl := cfg.getAclRulesCompiled()
 	a.addCheck(a.getACLVerifier(acl))
 }
@@ -58,20 +56,7 @@ func (a *SimpleAccessController) getURLValidReg(cfg *Config) authCheck {
 
 		return func(authRequest *AuthRequest) error {
 			if !urlRe.MatchString(authRequest.AuthURL) {
-				return fmt.Errorf("Incorrect URL")
-			}
-			return nil
-		}
-	}
-	return nil
-}
-
-func (a *SimpleAccessController) getContentTypeValidReg(cfg *Config) authCheck {
-	if len(cfg.ContentTypeValidReg) > 0 {
-		ctRe := regexp.MustCompile(cfg.ContentTypeValidReg)
-		return func(authRequest *AuthRequest) error {
-			if !ctRe.MatchString(authRequest.ContentType) {
-				return fmt.Errorf("Incorrect Content-Type")
+				return fmt.Errorf("incorrect URL")
 			}
 			return nil
 		}
@@ -84,7 +69,7 @@ func (a *SimpleAccessController) getACLVerifier(acl []*aclRuleCompilded) authChe
 		return func(authRequest *AuthRequest) error {
 			var err, lastError error
 
-			lastError = fmt.Errorf("Permission denied: no allow acl for this topic")
+			lastError = fmt.Errorf("permission denied: no allow acl for this topic")
 			for cnt, aclEl := range acl {
 				if aclEl.IsURLMatch(authRequest.AuthURL) {
 					err = aclEl.IsAllow(

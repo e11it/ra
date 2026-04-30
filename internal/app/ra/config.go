@@ -40,7 +40,7 @@ type Config struct {
 
 	// AccessLog — фильтрация access-лога (Gin), чтобы технические endpoint'ы не флодили JSON-лог.
 	AccessLog struct {
-		ExcludePaths []string `yaml:"exclude_paths" default:"[/metrics,/health,/ready,/api/openapi,/api/openapi/ra.yaml]"`
+		ExcludePaths []string `yaml:"exclude_paths" default:"[/metrics,/health,/ready,/swagger,/swagger/ra.yaml]"`
 	} `yaml:"access_log"`
 }
 

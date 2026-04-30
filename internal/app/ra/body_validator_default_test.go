@@ -5,9 +5,10 @@ package ra
 import (
 	"testing"
 
-	"github.com/e11it/ra/pkg/validate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/e11it/ra/pkg/validate"
 )
 
 func TestCreateBodyValidator_DefaultBuildIgnoresBodyValidationConfig(t *testing.T) {
@@ -15,7 +16,7 @@ func TestCreateBodyValidator_DefaultBuildIgnoresBodyValidationConfig(t *testing.
 		Enabled: true,
 		Checks:  []string{"no_partition", "is_tombstone", "envelope"},
 		StringLists: map[string][]string{
-			"allowed_operations": []string{"CREATE"},
+			"allowed_operations": {"CREATE"},
 		},
 	})
 	require.NoError(t, err)

@@ -6,13 +6,15 @@
 - `auth_request` для nginx (`GET /auth`)
 - proxy-режим (`/topics/*proxyPath`) c ACL и опциональной body validation
 
+В режиме прокси может выполнять проверки тела сообщения.
+
 ## Эндпоинты
 
 - `GET /auth` — проверка ACL и (для `POST`) проверка тела при включенной body validation.
 - `ANY /topics/*proxyPath` — proxy в upstream при `proxy.enabled: true`.
 - `GET /metrics` — Prometheus metrics.
-- `GET /api/openapi/ra.yaml` — OpenAPI spec in YAML.
-- `GET /api/openapi` — HTML docs (Swagger UI).
+- `GET /swagger/ra.yaml` — OpenAPI spec in YAML.
+- `GET /swagger` — HTML docs (Swagger UI).
 - `GET /reload` — reload конфига.
 
 ## OpenAPI generation
@@ -29,6 +31,7 @@ make openapi-gen
 
 ## Quality and Security
 
+- Lint (pinned): `make go-lint-install && make go-lint` (`golangci-lint v2.11.4`)
 - Fast local checks: `make qa-fast`
 - Full local security profile: `make qa-security`
 - Trivy filesystem scan: `make scan-fs`
@@ -42,9 +45,9 @@ Details: `docs/security.md`.
 ```yaml
 trimurlprefix: /topics/
 
-# Не писать access-лог (Gin) для перечисленных path (без query); по умолчанию /metrics, OpenAPI, и т.д.
+# Не писать access-лог (Gin) для перечисленных path (без query); по умолчанию /metrics, Swagger, и т.д.
 access_log:
-  exclude_paths: [/metrics, /health, /ready, /api/openapi, /api/openapi/ra.yaml]
+  exclude_paths: [/metrics, /health, /ready, /swagger, /swagger/ra.yaml]
 
 proxy:
   enabled: true

@@ -55,7 +55,9 @@ func (c *envelopeCheck) Check(ctx *validate.CheckContext, _ *validate.Record, re
 	if !ok {
 		return validate.StopRecord
 	}
-	metaObj, ok := vcheck.AsObject(rep, ctx.Index, vcheck.PathJoin(vcheck.PathIndex(ctx.Index, "envelope"), "meta"), metaRaw)
+	envelopePath := vcheck.PathIndex(ctx.Index, "envelope")
+	metaPath := vcheck.PathJoin(envelopePath, "meta")
+	metaObj, ok := vcheck.AsObject(rep, ctx.Index, metaPath, metaRaw)
 	if ok {
 		c.checkMeta(ctx, rep, metaObj)
 	}
@@ -64,7 +66,8 @@ func (c *envelopeCheck) Check(ctx *validate.CheckContext, _ *validate.Record, re
 	if !ok {
 		return validate.StopRecord
 	}
-	techObj, ok := vcheck.AsObject(rep, ctx.Index, vcheck.PathJoin(vcheck.PathIndex(ctx.Index, "envelope"), "tech"), techRaw)
+	techPath := vcheck.PathJoin(envelopePath, "tech")
+	techObj, ok := vcheck.AsObject(rep, ctx.Index, techPath, techRaw)
 	if ok {
 		c.checkTech(ctx, rep, techObj)
 	}
@@ -123,8 +126,9 @@ func (c *envelopeCheck) checkTech(ctx *validate.CheckContext, rep *validate.Repo
 
 	schemaVersionRaw, ok := vcheck.RequireField(rep, ctx.Index, base, tech, "schemaVersion")
 	if ok {
-		if schemaVersion, ok := vcheck.AsString(rep, ctx.Index, vcheck.PathJoin(base, "schemaVersion"), schemaVersionRaw); ok {
-			vcheck.IsSemverLike(rep, ctx.Index, vcheck.PathJoin(base, "schemaVersion"), schemaVersion)
+		schemaPath := vcheck.PathJoin(base, "schemaVersion")
+		if schemaVersion, ok := vcheck.AsString(rep, ctx.Index, schemaPath, schemaVersionRaw); ok {
+			vcheck.IsSemverLike(rep, ctx.Index, schemaPath, schemaVersion)
 		}
 	}
 
