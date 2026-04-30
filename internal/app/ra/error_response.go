@@ -5,8 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/e11it/ra/pkg/validate"
 	"github.com/gin-gonic/gin"
+
+	"github.com/e11it/ra/pkg/validate"
 )
 
 type RAErrorResponse struct {

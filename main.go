@@ -47,6 +47,7 @@ func runServer() {
 		log.Err(err).Msg("config load error")
 		os.Exit(1)
 	}
+	log.Info().Bool("compiled_with_company", RA.CompiledWithCompanyTag).Msg("build profile")
 	metrics := RA.NewMetrics()
 	router := buildRouter(ra, metrics)
 	srv := &http.Server{

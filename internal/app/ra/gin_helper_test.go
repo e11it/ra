@@ -2,16 +2,19 @@ package ra
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/e11it/ra/pkg/auth"
+	"github.com/e11it/ra/pkg/validate"
 )
 
 type allowAllAccessController struct{}
@@ -131,4 +134,124 @@ func runProxyCase(t *testing.T, tt proxyTestCase) {
 	assert.Equal(t, tt.expectedBody, string(respBody))
 	assert.Equal(t, tt.expectedHeaderSet, resp.Header.Get("X-Error-Code") != "")
 	assert.Equal(t, tt.expectedXError, resp.Header.Get("X-Error-Code"))
+}
+
+type noopValidator struct{}
+
+func (noopValidator) Validate(_ []byte) *validate.Report {
+	return validate.NewReport()
+}
+
+func TestAuthMiddleware_EmptyBodyWhenValidationEnabled(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name            string
+		enabled         bool
+		body            string
+		withValidator   bool
+		wantStatus      int
+		wantProxyHits   int32
+		wantErrorCode   int
+		wantReasonMatch string
+	}{
+		{
+			name:            "enabled rejects empty body",
+			enabled:         true,
+			body:            "   ",
+			withValidator:   false,
+			wantStatus:      http.StatusBadRequest,
+			wantProxyHits:   0,
+			wantErrorCode:   ErrorCodeMalformedBody,
+			wantReasonMatch: "empty request body while body_validation.enabled=true",
+		},
+		{
+			name:          "disabled keeps previous behavior",
+			enabled:       false,
+			body:          "",
+			withValidator: false,
+			wantStatus:    http.StatusOK,
+			wantProxyHits: 1,
+		},
+		{
+			name:          "enabled allows non-empty body with validator",
+			enabled:       true,
+			body:          `{"records":[{"value":{"x":1}}]}`,
+			withValidator: true,
+			wantStatus:    http.StatusOK,
+			wantProxyHits: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var proxyHits int32
+			rest := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				atomic.AddInt32(&proxyHits, 1)
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"ok":true}`))
+			}))
+			defer rest.Close()
+
+			cfg := &Config{}
+			cfg.Proxy.Enabled = true
+			cfg.Proxy.ProxyHost = rest.URL
+			cfg.BodyValidation.Enabled = tt.enabled
+
+			ra := &Ra{
+				config: cfg,
+				auth:   &allowAllAccessController{},
+			}
+			if tt.withValidator {
+				ra.bodyValidator = noopValidator{}
+			}
+
+			gin.SetMode(gin.ReleaseMode)
+			router := gin.New()
+			router.Any("/topics/*proxyPath",
+				GetUUIDMiddlerware(),
+				ra.GetAuthMiddlerware(true),
+				ra.GetProxyHandler(),
+			)
+
+			srv := httptest.NewServer(router)
+			defer srv.Close()
+
+			req, err := http.NewRequestWithContext(
+				context.Background(),
+				http.MethodPost,
+				srv.URL+"/topics/dev.topic.v2",
+				strings.NewReader(tt.body),
+			)
+			if err != nil {
+				t.Fatalf("new request: %v", err)
+			}
+
+			resp, err := srv.Client().Do(req)
+			if err != nil {
+				t.Fatalf("do request: %v", err)
+			}
+			t.Cleanup(func() { assert.NoError(t, resp.Body.Close()) })
+
+			respBody, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatalf("read response body: %v", err)
+			}
+
+			assert.Equal(t, tt.wantStatus, resp.StatusCode)
+			assert.Equal(t, tt.wantProxyHits, atomic.LoadInt32(&proxyHits))
+
+			if tt.wantErrorCode != 0 {
+				var payload RAErrorResponse
+				if err := json.Unmarshal(respBody, &payload); err != nil {
+					t.Fatalf("unmarshal error payload: %v", err)
+				}
+				assert.Equal(t, tt.wantErrorCode, payload.ErrorCode)
+				assert.Contains(t, payload.Details.Reason, tt.wantReasonMatch)
+			}
+		})
+	}
 }

@@ -43,20 +43,22 @@ services:
                 url: "http://schema-registry:8081"
                 type: "confluent" # or "tibco"
   # ###########################################################################
-  #ra:
-  #  # Makefile passes RA_VERSION=<public|company> to choose local image variant.
-  #  image:  "${ORG_PREFIX:-e11it/}ra:${RA_VERSION:-v3}"
-  #  restart: always
-  #  logging: *default-logging
-  #  init: true
-  #  healthcheck:
-  #    test: [ "CMD", "/app/bin/ra", "-healthcheck" ]
-  #    interval: 15s
-  #    timeout: 3s
-  #    start_period: 10s
-  #    retries: 3
-  #  volumes:
-  #    - ./config.yml:/app/config.yml
+  ra:
+    # Makefile passes RA_VERSION=<public|company> to choose local image variant.
+    image:  "${ORG_PREFIX:-e11it/}ra:${RA_VERSION:-v3}"
+    restart: always
+    logging: *default-logging
+    init: true
+    ports:
+      - 8080:8080
+    healthcheck:
+      test: [ "CMD", "/app/bin/ra", "-healthcheck" ]
+      interval: 15s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    volumes:
+      - ./config.yml:/app/config.yml
   # ###########################################################################
   zookeeper:
     image: "${ORG_PREFIX:-}confluentinc/cp-zookeeper:${CONFLUENT_VERSION:-7.7.1}"

@@ -82,7 +82,7 @@ func (ra *Ra) GetAuthMiddlerware(proxy bool) gin.HandlerFunc {
 			return
 		}
 
-		if ra.bodyValidator != nil && c.Request.Method == http.MethodPost {
+		if c.Request.Method == http.MethodPost && ra.config.BodyValidation.Enabled {
 			body, err := readAndRestoreBody(c)
 			if err != nil {
 				log.Warn().Err(err).Str("request_uri", c.Request.RequestURI).Msg("read request body failed")
@@ -96,21 +96,41 @@ func (ra *Ra) GetAuthMiddlerware(proxy bool) gin.HandlerFunc {
 				)
 				return
 			}
-			rep := ra.bodyValidator.Validate(body)
-			if rep.HasErrors() {
+			if len(bytes.TrimSpace(body)) == 0 {
+				const reason = "empty request body while body_validation.enabled=true"
 				log.Warn().
 					Str("request_uri", c.Request.RequestURI).
-					Str("summary", rep.SummaryLine()).
-					Msg("body validation failed")
+					Msg(reason)
 				WriteJSONErrorGin(
 					c,
-					http.StatusUnprocessableEntity,
-					ErrorCodePayloadValidate,
-					"Ra: payload validation errors",
-					rep.SummaryLine(),
-					BuildValidationDetails(rep, GinTraceID(c)),
+					http.StatusBadRequest,
+					ErrorCodeMalformedBody,
+					"Ra: empty request body",
+					reason,
+					RAErrorDetails{
+						TraceID: GinTraceID(c),
+						Reason:  reason,
+					},
 				)
 				return
+			}
+			if ra.bodyValidator != nil {
+				rep := ra.bodyValidator.Validate(body)
+				if rep.HasErrors() {
+					log.Warn().
+						Str("request_uri", c.Request.RequestURI).
+						Str("summary", rep.SummaryLine()).
+						Msg("body validation failed")
+					WriteJSONErrorGin(
+						c,
+						http.StatusUnprocessableEntity,
+						ErrorCodePayloadValidate,
+						"Ra: payload validation errors",
+						rep.SummaryLine(),
+						BuildValidationDetails(rep, GinTraceID(c)),
+					)
+					return
+				}
 			}
 		}
 
