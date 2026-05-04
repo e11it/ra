@@ -10,6 +10,39 @@ import (
 	"github.com/e11it/ra/pkg/validate"
 )
 
+const payloadValidationMessageBase = "Ra: payload validation errors"
+
+// FormatPayloadValidationMessage формирует корневой message для ошибки payload validation:
+// базовый текст, уникальные code из errors (порядок первого появления), trace_id в конце.
+func FormatPayloadValidationMessage(details RAErrorDetails) string {
+	var b strings.Builder
+	b.WriteString(payloadValidationMessageBase)
+	seen := make(map[string]struct{})
+	var codes []string
+	for _, e := range details.Errors {
+		c := strings.TrimSpace(e.Code)
+		if c == "" {
+			continue
+		}
+		if _, ok := seen[c]; ok {
+			continue
+		}
+		seen[c] = struct{}{}
+		codes = append(codes, c)
+	}
+	if len(codes) > 0 {
+		b.WriteString(". Problems: [")
+		b.WriteString(strings.Join(codes, ", "))
+		b.WriteString("]")
+	}
+	if tid := strings.TrimSpace(details.TraceID); tid != "" {
+		b.WriteString(". Trace ID: ")
+		b.WriteString(tid)
+		b.WriteByte('.')
+	}
+	return b.String()
+}
+
 type RAErrorResponse struct {
 	ErrorCode int            `json:"error_code"`
 	Message   string         `json:"message"`

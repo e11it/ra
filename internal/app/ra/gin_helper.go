@@ -121,13 +121,15 @@ func (ra *Ra) GetAuthMiddlerware(proxy bool) gin.HandlerFunc {
 						Str("request_uri", c.Request.RequestURI).
 						Str("summary", rep.SummaryLine()).
 						Msg("body validation failed")
+					traceID := GinTraceID(c)
+					details := BuildValidationDetails(rep, traceID)
 					WriteJSONErrorGin(
 						c,
 						http.StatusUnprocessableEntity,
 						ErrorCodePayloadValidate,
-						"Ra: payload validation errors",
+						FormatPayloadValidationMessage(details),
 						rep.SummaryLine(),
-						BuildValidationDetails(rep, GinTraceID(c)),
+						details,
 					)
 					return
 				}

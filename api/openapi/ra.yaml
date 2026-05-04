@@ -133,7 +133,7 @@ components:
           example: 42230
         message:
           type: string
-          example: "Ra: payload validation errors"
+          example: "Ra: payload validation errors. Problems: [key_mismatch]. Trace ID: c7fd43f8-1357-4b75-92f8-8d9fd9566ddd."
         details:
           type: object
           properties:

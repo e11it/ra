@@ -103,7 +103,7 @@ RA возвращает ошибки в JSON-формате (включая `aut
 ```json
 {
   "error_code": 42230,
-  "message": "Ra: payload validation errors",
+  "message": "Ra: payload validation errors. Problems: [key_mismatch]. Trace ID: c7fd43f8-1357-4b75-92f8-8d9fd9566ddd.",
   "details": {
     "trace_id": "c7fd43f8-1357-4b75-92f8-8d9fd9566ddd",
     "errors": [

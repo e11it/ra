@@ -1,5 +1,5 @@
 #
-GET http://localhost:8085/auth HTTP/1.1
+GET http://localhost:8080/auth HTTP/1.1
 Authorization: Basic avro-user:anypassword
 Content-Type: application/vnd.kafka.avro.v2+json
 X-Real-Ip: 10.48.5.59
