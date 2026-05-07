@@ -188,7 +188,7 @@ jobs:
         run: go build -tags "nomsgpack" -o ra .
       - name: Start RA server
         run: |
-          RA_CONFIG_FILE=example/config.yml ./ra > ra.log 2>&1 &
+          RA_CONFIG_FILE=example/config-ci.yml ./ra > ra.log 2>&1 &
           echo $! > ra.pid
       - name: Wait for RA
         run: |

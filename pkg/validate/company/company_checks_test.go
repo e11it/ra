@@ -14,8 +14,13 @@ import (
 )
 
 func companyConfig() validate.Config {
+	return companyConfigWithExtended(false)
+}
+
+func companyConfigWithExtended(extended bool) validate.Config {
 	return validate.Config{
-		Enabled: true,
+		Enabled:           true,
+		ExtendedAvroTypes: extended,
 		Checks: []string{
 			noPartitionCheckName,
 			"is_tombstone",
@@ -115,4 +120,151 @@ func TestCompanyChecks_TombstoneWithPartitionFails(t *testing.T) {
 	rep := v.Validate(body)
 	require.True(t, rep.HasErrors())
 	assert.Contains(t, rep.FormatList(), "partition_forbidden")
+}
+
+func TestCompanyChecks_ExtendedAvroTypes_ValidBatch(t *testing.T) {
+	v, err := payloadvalidate.NewValidatorFromConfig(companyConfigWithExtended(true))
+	require.NoError(t, err)
+	require.NotNil(t, v)
+
+	body := []byte(`{
+  "records": [
+    {
+      "key": "k",
+      "value": {
+        "envelope": {
+          "meta": {
+            "eventId": "0192f8b9-7a1c-7c4e-9d3a-1f2c3a4b5c6d",
+            "entityKey": "k",
+            "operation": "UPDATE",
+            "eventTime": "2024-04-19T10:00:00Z",
+            "eventTimeZone": "UTC",
+            "businessDate": {"date": "2024-01-15"}
+          },
+          "tech": {
+            "sourceSystem": "crm",
+            "schemaVersion": "1.0.0",
+            "producedAt": "2024-04-19T10:00:00.001Z",
+            "traceId": {"string": "0192f8b9-7a1c-7c4e-9d3a-1f2c3a4b5c6d"}
+          }
+        },
+        "payload": {"com.example.Payload": {"x": 1}},
+        "payloadBefore": null
+      }
+    }
+  ]
+}`)
+	assert.False(t, v.Validate(body).HasErrors())
+}
+
+func TestCompanyChecks_ExtendedAvroTypes_TraceIDMustBeUUID(t *testing.T) {
+	v, err := payloadvalidate.NewValidatorFromConfig(companyConfigWithExtended(true))
+	require.NoError(t, err)
+	require.NotNil(t, v)
+
+	body := []byte(`{
+  "records": [
+    {
+      "key": "k",
+      "value": {
+        "envelope": {
+          "meta": {
+            "eventId": "0192f8b9-7a1c-7c4e-9d3a-1f2c3a4b5c6d",
+            "entityKey": "k",
+            "operation": "UPDATE",
+            "eventTime": "2024-04-19T10:00:00Z",
+            "eventTimeZone": "UTC"
+          },
+          "tech": {
+            "sourceSystem": "crm",
+            "schemaVersion": "1.0.0",
+            "producedAt": "2024-04-19T10:00:00.001Z",
+            "traceId": {"string": "not-a-uuid"}
+          }
+        },
+        "payload": {"com.example.Payload": {"x": 1}},
+        "payloadBefore": null
+      }
+    }
+  ]
+}`)
+
+	rep := v.Validate(body)
+	require.True(t, rep.HasErrors())
+	assert.Contains(t, rep.FormatList(), "records[0].envelope.tech.traceId")
+	assert.Contains(t, rep.FormatList(), "invalid_format")
+}
+
+func TestCompanyChecks_ExtendedAvroTypes_EntityKeyMustBePlainString(t *testing.T) {
+	v, err := payloadvalidate.NewValidatorFromConfig(companyConfigWithExtended(true))
+	require.NoError(t, err)
+	require.NotNil(t, v)
+
+	body := []byte(`{
+  "records": [
+    {
+      "key": "k",
+      "value": {
+        "envelope": {
+          "meta": {
+            "eventId": "0192f8b9-7a1c-7c4e-9d3a-1f2c3a4b5c6d",
+            "entityKey": {"string": "k"},
+            "operation": "UPDATE",
+            "eventTime": "2024-04-19T10:00:00Z",
+            "eventTimeZone": "UTC"
+          },
+          "tech": {
+            "sourceSystem": "crm",
+            "schemaVersion": "1.0.0",
+            "producedAt": "2024-04-19T10:00:00.001Z"
+          }
+        },
+        "payload": {"com.example.Payload": {"x": 1}},
+        "payloadBefore": null
+      }
+    }
+  ]
+}`)
+
+	rep := v.Validate(body)
+	require.True(t, rep.HasErrors())
+	assert.Contains(t, rep.FormatList(), "records[0].envelope.meta.entityKey")
+	assert.Contains(t, rep.FormatList(), "invalid_type")
+}
+
+func TestCompanyChecks_ExtendedAvroTypes_StringsRejectedWhenDisabled(t *testing.T) {
+	v, err := payloadvalidate.NewValidatorFromConfig(companyConfigWithExtended(false))
+	require.NoError(t, err)
+	require.NotNil(t, v)
+
+	body := []byte(`{
+  "records": [
+    {
+      "key": "k",
+      "value": {
+        "envelope": {
+          "meta": {
+            "eventId": "0192f8b9-7a1c-7c4e-9d3a-1f2c3a4b5c6d",
+            "entityKey": "k",
+            "operation": "UPDATE",
+            "eventTime": "2024-04-19T10:00:00Z",
+            "eventTimeZone": "UTC"
+          },
+          "tech": {
+            "sourceSystem": "crm",
+            "schemaVersion": "1.0.0",
+            "producedAt": "2024-04-19T10:00:00.001Z"
+          }
+        },
+        "payload": {"x": 1},
+        "payloadBefore": null
+      }
+    }
+  ]
+}`)
+
+	rep := v.Validate(body)
+	require.True(t, rep.HasErrors())
+	assert.Contains(t, rep.FormatList(), "records[0].envelope.meta.eventTime")
+	assert.Contains(t, rep.FormatList(), "records[0].envelope.tech.producedAt")
 }

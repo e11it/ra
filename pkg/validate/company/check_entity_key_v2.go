@@ -14,7 +14,8 @@ import (
 
 const entityKeyCheckName = "entity_key"
 
-type entityKeyCheck struct{}
+type entityKeyCheck struct {
+}
 
 func newEntityKeyCheck(_ validate.Config) (validate.RecordChecker, error) {
 	return &entityKeyCheck{}, nil

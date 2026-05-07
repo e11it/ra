@@ -10,6 +10,9 @@ type Config struct {
 
 	// StringLists stores checker-specific list options.
 	StringLists map[string][]string
+
+	// ExtendedAvroTypes enables human-readable logical Avro types.
+	ExtendedAvroTypes bool
 }
 
 // IsEmpty reports whether validation is effectively disabled.

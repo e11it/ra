@@ -34,6 +34,7 @@ type Config struct {
 	// Подробнее см. pkg/payloadvalidate и docs/Корпоративный стандарт ...md.
 	BodyValidation struct {
 		Enabled           bool     `yaml:"enabled" default:"false"`
+		ExtendedAvroTypes bool     `yaml:"extended_avro_types" default:"false"`
 		AllowedOperations []string `yaml:"allowed_operations" default:"[CREATE,UPDATE,UPSERT,DELETE,SNAPSHOT,EVENT]"`
 		Checks            []string `yaml:"checks" default:"[no_partition,is_tombstone,envelope,payload,entity_key]"`
 	} `yaml:"body_validation"`
@@ -47,8 +48,9 @@ type Config struct {
 // validationConfig адаптирует корневой BodyValidation-блок к validate.Config.
 func (c *Config) validationConfig() validate.Config {
 	return validate.Config{
-		Enabled: c.BodyValidation.Enabled,
-		Checks:  c.BodyValidation.Checks,
+		Enabled:           c.BodyValidation.Enabled,
+		ExtendedAvroTypes: c.BodyValidation.ExtendedAvroTypes,
+		Checks:            c.BodyValidation.Checks,
 		StringLists: map[string][]string{
 			"allowed_operations": c.BodyValidation.AllowedOperations,
 		},

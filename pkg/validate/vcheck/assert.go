@@ -89,6 +89,35 @@ func AsInt64(rep *validate.Report, rec int, path string, value any) (int64, bool
 	}
 }
 
+// AsTimestampMicros checks timestamp-micros values.
+// By default accepts integer JSON values; in extended mode also accepts RFC3339 strings.
+func AsTimestampMicros(rep *validate.Report, rec int, path string, value any, extended bool) (int64, bool) {
+	if !extended {
+		return AsInt64(rep, rec, path, value)
+	}
+
+	if n, ok := AsInt64(validate.NewReport(), rec, path, value); ok {
+		return n, true
+	}
+
+	s, ok := value.(string)
+	if !ok {
+		rep.AddError(rec, path, "invalid_type", "expected integer or RFC3339 timestamp string")
+		return 0, false
+	}
+
+	ts, err := time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		ts, err = time.Parse(time.RFC3339, s)
+		if err != nil {
+			rep.AddError(rec, path, "invalid_type", "expected integer or RFC3339 timestamp string")
+			return 0, false
+		}
+	}
+
+	return ts.UnixMicro(), true
+}
+
 // OneOf validates catalog membership.
 func OneOf(rep *validate.Report, rec int, path, value string, allowed map[string]struct{}) bool {
 	if _, ok := allowed[value]; ok {
@@ -177,26 +206,4 @@ func UnionString(rep *validate.Report, rec int, path string, value any) (string,
 		return "", false, false
 	}
 	return s, false, true
-}
-
-// UnionInt extracts Avro union [null,int] value.
-func UnionInt(rep *validate.Report, rec int, path string, value any) (int64, bool, bool) {
-	if value == nil {
-		return 0, true, true
-	}
-	obj, ok := value.(map[string]any)
-	if !ok {
-		rep.AddError(rec, path, "invalid_type", "expected null or Avro union object")
-		return 0, false, false
-	}
-	raw, ok := obj["int"]
-	if !ok {
-		rep.AddError(rec, path, "invalid_type", "expected Avro union {\"int\":...}")
-		return 0, false, false
-	}
-	n, valid := AsInt64(rep, rec, path, raw)
-	if !valid {
-		return 0, false, false
-	}
-	return n, false, true
 }

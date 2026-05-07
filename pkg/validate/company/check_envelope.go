@@ -12,7 +12,8 @@ import (
 const envelopeCheckName = "envelope"
 
 type envelopeCheck struct {
-	allowed map[string]struct{}
+	allowed           map[string]struct{}
+	extendedAvroTypes bool
 }
 
 func newEnvelopeCheck(cfg validate.Config) (validate.RecordChecker, error) {
@@ -30,7 +31,10 @@ func newEnvelopeCheck(cfg validate.Config) (validate.RecordChecker, error) {
 	if len(set) == 0 {
 		return nil, fmt.Errorf("envelope: allowed operations is empty")
 	}
-	return &envelopeCheck{allowed: set}, nil
+	return &envelopeCheck{
+		allowed:           set,
+		extendedAvroTypes: cfg.ExtendedAvroTypes,
+	}, nil
 }
 
 func (c *envelopeCheck) Name() string { return envelopeCheckName }
@@ -98,7 +102,7 @@ func (c *envelopeCheck) checkMeta(ctx *validate.CheckContext, rep *validate.Repo
 
 	eventTimeRaw, ok := vcheck.RequireField(rep, ctx.Index, base, meta, "eventTime")
 	if ok {
-		vcheck.AsInt64(rep, ctx.Index, vcheck.PathJoin(base, "eventTime"), eventTimeRaw)
+		vcheck.AsTimestampMicros(rep, ctx.Index, vcheck.PathJoin(base, "eventTime"), eventTimeRaw, c.extendedAvroTypes)
 	}
 
 	timeZoneRaw, ok := vcheck.RequireField(rep, ctx.Index, base, meta, "eventTimeZone")
@@ -106,13 +110,6 @@ func (c *envelopeCheck) checkMeta(ctx *validate.CheckContext, rep *validate.Repo
 		if tz, ok := vcheck.AsString(rep, ctx.Index, vcheck.PathJoin(base, "eventTimeZone"), timeZoneRaw); ok {
 			vcheck.IsIANAZone(rep, ctx.Index, vcheck.PathJoin(base, "eventTimeZone"), tz)
 		}
-	}
-
-	if businessKeyRaw, exists := meta["businessKey"]; exists {
-		vcheck.UnionString(rep, ctx.Index, vcheck.PathJoin(base, "businessKey"), businessKeyRaw)
-	}
-	if businessDateRaw, exists := meta["businessDate"]; exists {
-		vcheck.UnionInt(rep, ctx.Index, vcheck.PathJoin(base, "businessDate"), businessDateRaw)
 	}
 }
 
@@ -134,13 +131,13 @@ func (c *envelopeCheck) checkTech(ctx *validate.CheckContext, rep *validate.Repo
 
 	producedAtRaw, ok := vcheck.RequireField(rep, ctx.Index, base, tech, "producedAt")
 	if ok {
-		vcheck.AsInt64(rep, ctx.Index, vcheck.PathJoin(base, "producedAt"), producedAtRaw)
+		vcheck.AsTimestampMicros(rep, ctx.Index, vcheck.PathJoin(base, "producedAt"), producedAtRaw, c.extendedAvroTypes)
 	}
 
-	if seqRaw, exists := tech["sequence"]; exists {
-		vcheck.UnionInt(rep, ctx.Index, vcheck.PathJoin(base, "sequence"), seqRaw)
-	}
 	if traceRaw, exists := tech["traceId"]; exists {
-		vcheck.UnionString(rep, ctx.Index, vcheck.PathJoin(base, "traceId"), traceRaw)
+		tracePath := vcheck.PathJoin(base, "traceId")
+		if traceID, isNull, ok := vcheck.UnionString(rep, ctx.Index, tracePath, traceRaw); ok && !isNull {
+			vcheck.IsUUIDCanonical(rep, ctx.Index, tracePath, traceID)
+		}
 	}
 }
