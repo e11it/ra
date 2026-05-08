@@ -1,0 +1,171 @@
+env:
+  parameters:
+    failOnError: false
+    failOnWarning: false
+    continueOnFailure: true
+  contexts:
+    - name: ra
+      urls:
+        - "http://localhost:8080"
+      includePaths:
+        - "http://localhost:8080/.*"
+
+jobs:
+  - type: openapi
+    parameters:
+      apiFile: "/zap/wrk/api/openapi/ra.yaml"
+      targetUrl: "http://localhost:8080"
+      context: "ra"
+
+  - type: requestor
+    parameters:
+      user: ""
+    requests:
+      - name: "topics_good"
+        url: "http://localhost:8080/topics/dev1s.example.doc.test.v1"
+        method: "POST"
+        headers:
+          - "Authorization: Basic cmVzdC11c2VyLXJ3OnJlc3RfcGFzc3dvcmQ="
+          - "Content-Type: application/vnd.kafka.avro.v2+json"
+          - "X-Original-Uri: /topics/dev1s.example.doc.test.v1"
+          - "X-Original-Method: POST"
+          - "X-Real-Ip: 127.0.0.1"
+        data: |
+          {
+            "value_schema": "{\"type\":\"record\",\"name\":\"Event\",\"fields\":[{\"name\":\"envelope\",\"type\":{\"type\":\"record\",\"name\":\"Envelope\",\"fields\":[{\"name\":\"meta\",\"type\":{\"type\":\"record\",\"name\":\"Meta\",\"fields\":[{\"name\":\"eventId\",\"type\":\"string\"},{\"name\":\"entityKey\",\"type\":\"string\"},{\"name\":\"operation\",\"type\":\"string\"},{\"name\":\"eventTime\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"}},{\"name\":\"eventTimeZone\",\"type\":\"string\"}]}} ,{\"name\":\"tech\",\"type\":{\"type\":\"record\",\"name\":\"Tech\",\"fields\":[{\"name\":\"sourceSystem\",\"type\":\"string\"},{\"name\":\"schemaVersion\",\"type\":\"int\"},{\"name\":\"producedAt\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"}}]}}]}},{\"name\":\"payload\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"Payload\",\"fields\":[{\"name\":\"value\",\"type\":\"string\"}]}],\"default\":null}]}",
+            "records": [
+              {
+                "key": "entity-1",
+                "value": {
+                  "envelope": {
+                    "meta": {
+                      "eventId": "00000000-0000-0000-0000-000000000001",
+                      "entityKey": "entity-1",
+                      "operation": "CREATE",
+                      "eventTime": 1743849600000000,
+                      "eventTimeZone": "Europe/Moscow"
+                    },
+                    "tech": {
+                      "sourceSystem": "DAST",
+                      "schemaVersion": 0,
+                      "producedAt": 1743849600000000
+                    }
+                  },
+                  "payload": {
+                    "Payload": {
+                      "value": "ok"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+
+      - name: "topics_wrong_content_type"
+        url: "http://localhost:8080/topics/dev1s.example.doc.test.v1"
+        method: "POST"
+        headers:
+          - "Content-Type: application/json"
+        data: |
+          {
+            "records": [{"value": {"envelope": {"meta": {"eventId": "00000000-0000-0000-0000-000000000002","entityKey": "entity-2","operation": "CREATE","eventTime": 1743849600000000,"eventTimeZone": "Europe/Moscow"},"tech": {"sourceSystem": "DAST","schemaVersion": 0,"producedAt": 1743849600000000}},"payload": {"Payload": {"value": "ok"}}}}]
+          }
+
+      - name: "topics_empty_body"
+        url: "http://localhost:8080/topics/dev1s.example.doc.test.v1"
+        method: "POST"
+        headers:
+          - "Content-Type: application/vnd.kafka.avro.v2+json"
+        data: |
+          
+
+      - name: "topics_malformed_json"
+        url: "http://localhost:8080/topics/dev1s.example.doc.test.v1"
+        method: "POST"
+        headers:
+          - "Content-Type: application/vnd.kafka.avro.v2+json"
+        data: |
+          {"records":
+
+      - name: "topics_invalid_envelope"
+        url: "http://localhost:8080/topics/dev1s.example.doc.test.v1"
+        method: "POST"
+        headers:
+          - "Content-Type: application/vnd.kafka.avro.v2+json"
+        data: |
+          {
+            "records": [
+              {
+                "key": "entity-3",
+                "value": {
+                  "envelope": {
+                    "meta": {
+                      "eventId": "00000000-0000-0000-0000-000000000003",
+                      "entityKey": "entity-3",
+                      "operation": "CREATE",
+                      "eventTime": 1743849600000000,
+                      "eventTimeZone": "MSK"
+                    },
+                    "tech": {
+                      "sourceSystem": "DAST",
+                      "schemaVersion": 1,
+                      "producedAt": 1743849600000000
+                    }
+                  },
+                  "payload": {
+                    "Payload": {
+                      "value": "ok"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+
+      - name: "auth_missing_original_uri"
+        url: "http://localhost:8080/auth"
+        method: "GET"
+        headers:
+          - "X-Original-Method: POST"
+          - "X-Real-Ip: 127.0.0.1"
+
+      - name: "auth_wrong_content_type_header_for_post"
+        url: "http://localhost:8080/auth"
+        method: "GET"
+        headers:
+          - "X-Original-Uri: /topics/dev1s.example.doc.test.v1"
+          - "X-Original-Method: POST"
+          - "Content-Type: application/json"
+          - "X-Real-Ip: 127.0.0.1"
+
+  # Active scan (manual job): keep bounded to avoid runaway scans.
+  - type: activeScan
+    parameters:
+      context: "ra"
+      maxRuleDurationInMins: 1
+      maxScanDurationInMins: 8
+      delayInMs: 0
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: "5"
+
+  - type: report
+    parameters:
+      template: "traditional-html"
+      reportDir: "/zap/wrk"
+      reportFile: "topics_full_report_html.html"
+      reportTitle: "RA ZAP full (OpenAPI+topics seed+active)"
+  - type: report
+    parameters:
+      template: "traditional-json"
+      reportDir: "/zap/wrk"
+      reportFile: "topics_full_report_json.json"
+      reportTitle: "RA ZAP full (OpenAPI+topics seed+active)"
+
+  - type: exitStatus
+    alwaysRun: true
+    parameters:
+      okExitValue: 0
+      warnExitValue: 0
+      errorExitValue: 0

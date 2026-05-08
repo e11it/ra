@@ -1,0 +1,79 @@
+env:
+  contexts:
+    - name: ra
+      urls:
+        - "http://localhost:8080"
+      includePaths:
+        - "http://localhost:8080/topics/.*"
+
+jobs:
+  # 1) Send a real Kafka REST v2-style POST to /topics/* so proxy + body validation paths are exercised.
+  - type: requestor
+    parameters:
+      user: ""
+    requests:
+      - name: "produce_minimal"
+        url: "http://localhost:8080/topics/dev1s.example.doc.test.v1"
+        method: "POST"
+        headers:
+          - "Authorization: Basic cmVzdC11c2VyLXJ3OnJlc3RfcGFzc3dvcmQ="
+          - "Content-Type: application/vnd.kafka.avro.v2+json"
+          - "X-Original-Uri: /topics/dev1s.example.doc.test.v1"
+          - "X-Original-Method: POST"
+          - "X-Real-Ip: 127.0.0.1"
+        data: |
+          {
+            "value_schema": "{\"type\":\"record\",\"name\":\"Event\",\"fields\":[{\"name\":\"envelope\",\"type\":{\"type\":\"record\",\"name\":\"Envelope\",\"fields\":[{\"name\":\"meta\",\"type\":{\"type\":\"record\",\"name\":\"Meta\",\"fields\":[{\"name\":\"eventId\",\"type\":\"string\"},{\"name\":\"entityKey\",\"type\":\"string\"},{\"name\":\"operation\",\"type\":\"string\"},{\"name\":\"eventTime\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"}},{\"name\":\"eventTimeZone\",\"type\":\"string\"}]}} ,{\"name\":\"tech\",\"type\":{\"type\":\"record\",\"name\":\"Tech\",\"fields\":[{\"name\":\"sourceSystem\",\"type\":\"string\"},{\"name\":\"schemaVersion\",\"type\":\"int\"},{\"name\":\"producedAt\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"}}]}}]}},{\"name\":\"payload\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"Payload\",\"fields\":[{\"name\":\"value\",\"type\":\"string\"}]}],\"default\":null}]}",
+            "records": [
+              {
+                "key": "entity-1",
+                "value": {
+                  "envelope": {
+                    "meta": {
+                      "eventId": "00000000-0000-0000-0000-000000000001",
+                      "entityKey": "entity-1",
+                      "operation": "CREATE",
+                      "eventTime": 1743849600000000,
+                      "eventTimeZone": "Europe/Moscow"
+                    },
+                    "tech": {
+                      "sourceSystem": "DAST",
+                      "schemaVersion": 0,
+                      "producedAt": 1743849600000000
+                    }
+                  },
+                  "payload": {
+                    "Payload": {
+                      "value": "ok"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+
+  # 2) Passive scan (baseline-ish) to catch headers, cookies, etc.
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: "5"
+
+  # 3) Reports
+  - type: report
+    parameters:
+      template: "traditional-html"
+      reportDir: "/zap/wrk"
+      reportFile: "report_html.html"
+      reportTitle: "RA ZAP report (topics)"
+  - type: report
+    parameters:
+      template: "traditional-json"
+      reportDir: "/zap/wrk"
+      reportFile: "report_json.json"
+      reportTitle: "RA ZAP report (topics)"
+
+  # 4) Exit status policy: never fail the workflow because of this plan.
+  - type: exitStatus
+    parameters:
+      okExitValue: 0
+      warnExitValue: 0
+      errorExitValue: 0

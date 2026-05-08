@@ -181,8 +181,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Start upstream stub for proxy
         run: |
-          docker run --rm --network host -p 9999:5678 hashicorp/http-echo:1.0.0 -listen :5678 -text ok > upstream.log 2>&1 &
-          echo $! > upstream.pid
+          # NOTE: with --network host, -p port mapping is ignored. Listen on :9999 directly.
+          docker run -d --name ra-upstream-stub --network host hashicorp/http-echo:1.0.0 -listen :9999 -text ok
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -204,16 +204,122 @@ jobs:
             sleep 2
           done
           echo "ra did not become ready in time"
+          echo "==> upstream container status"
+          docker ps -a --filter name=ra-upstream-stub || true
+          docker logs --tail 200 ra-upstream-stub || true
           test -f ra.log && tail -n 200 ra.log || true
           exit 1
       - name: Prepare workspace for ZAP reports
         run: |
           # ZAP container runs as non-root user; ensure it can write into mounted workspace.
           sudo chmod -R a+rwx "$GITHUB_WORKSPACE"
-      - name: OWASP ZAP (topics autorun)
+      - name: OWASP ZAP baseline (action)
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          target: "http://localhost:8080"
+          allow_issue_writing: false
+          cmd_options: "-I -m 3 -r report_html.html -J report_json.json"
+      - name: Topics POST (autorun plan)
+        continue-on-error: true
         run: |
           docker run --rm --network host -v "${PWD}:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
-            zap.sh -cmd -autorun /zap/wrk/.zap/zap-topics-plan.yaml
+            zap.sh -cmd -port 8090 -autorun /zap/wrk/.zap/zap-topics-nightly.yaml
+      - name: Topics negative-cases regression check
+        run: |
+          python3 - <<'PY'
+          import json
+          import sys
+          import urllib.request
+          import urllib.error
+          
+          BASE = "http://localhost:8080"
+          TOPIC = "/topics/dev1s.example.doc.test.v1"
+          
+          def req(method, path, headers=None, body=None):
+            headers = headers or {}
+            data = None if body is None else body.encode("utf-8")
+            r = urllib.request.Request(BASE + path, data=data, headers=headers, method=method)
+            try:
+              with urllib.request.urlopen(r, timeout=5) as resp:
+                return resp.getcode()
+            except urllib.error.HTTPError as e:
+              return e.code
+          
+          good_body = json.dumps({
+            "value_schema": "{\"type\":\"record\",\"name\":\"Event\",\"fields\":[{\"name\":\"envelope\",\"type\":{\"type\":\"record\",\"name\":\"Envelope\",\"fields\":[{\"name\":\"meta\",\"type\":{\"type\":\"record\",\"name\":\"Meta\",\"fields\":[{\"name\":\"eventId\",\"type\":\"string\"},{\"name\":\"entityKey\",\"type\":\"string\"},{\"name\":\"operation\",\"type\":\"string\"},{\"name\":\"eventTime\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"}},{\"name\":\"eventTimeZone\",\"type\":\"string\"}]}} ,{\"name\":\"tech\",\"type\":{\"type\":\"record\",\"name\":\"Tech\",\"fields\":[{\"name\":\"sourceSystem\",\"type\":\"string\"},{\"name\":\"schemaVersion\",\"type\":\"int\"},{\"name\":\"producedAt\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"}}]}}]}},{\"name\":\"payload\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"Payload\",\"fields\":[{\"name\":\"value\",\"type\":\"string\"}]}],\"default\":null}]}",
+            "records": [{
+              "key": "entity-1",
+              "value": {
+                "envelope": {
+                  "meta": {
+                    "eventId": "00000000-0000-0000-0000-000000000001",
+                    "entityKey": "entity-1",
+                    "operation": "CREATE",
+                    "eventTime": 1743849600000000,
+                    "eventTimeZone": "Europe/Moscow"
+                  },
+                  "tech": {
+                    "sourceSystem": "DAST",
+                    "schemaVersion": 0,
+                    "producedAt": 1743849600000000
+                  }
+                },
+                "payload": { "Payload": { "value": "ok" } }
+              }
+            }]
+          })
+          
+          cases = [
+            ("topics_wrong_content_type", "POST", TOPIC,
+              {"Content-Type": "application/json"}, good_body, "4xx"),
+            ("topics_empty_body", "POST", TOPIC,
+              {"Content-Type": "application/vnd.kafka.avro.v2+json"}, "", "4xx"),
+            ("topics_malformed_json", "POST", TOPIC,
+              {"Content-Type": "application/vnd.kafka.avro.v2+json"}, "{\"records\":", "4xx"),
+            ("topics_invalid_envelope", "POST", TOPIC,
+              {"Content-Type": "application/vnd.kafka.avro.v2+json"}, json.dumps({
+                "records": [{
+                  "key": "entity-3",
+                  "value": {
+                    "envelope": {
+                      "meta": {
+                        "eventId": "00000000-0000-0000-0000-000000000003",
+                        "entityKey": "entity-3",
+                        "operation": "CREATE",
+                        "eventTime": 1743849600000000,
+                        "eventTimeZone": "MSK"
+                      },
+                      "tech": { "sourceSystem": "DAST", "schemaVersion": 1, "producedAt": 1743849600000000 }
+                    },
+                    "payload": { "Payload": { "value": "ok" } }
+                  }
+                }]
+              }), "4xx"),
+            ("auth_missing_original_uri", "GET", "/auth",
+              {"X-Original-Method": "POST", "X-Real-Ip": "127.0.0.1"}, None, "4xx"),
+            ("auth_wrong_content_type_header_for_post", "GET", "/auth",
+              {"X-Original-Uri": TOPIC, "X-Original-Method": "POST", "Content-Type": "application/json", "X-Real-Ip": "127.0.0.1"}, None, "4xx"),
+          ]
+          
+          failures = []
+          for name, method, path, headers, body, expected in cases:
+            code = req(method, path, headers=headers, body=body)
+            ok = 400 <= code <= 499
+            if code < 200:
+              ok = False
+            if 200 <= code <= 399:
+              failures.append(f"{name}: regression (unexpected {code})")
+            elif 500 <= code <= 599:
+              failures.append(f"{name}: regression (server error {code})")
+            elif not ok:
+              failures.append(f"{name}: unexpected status {code} (expected 4xx)")
+            else:
+              print(f"{name}: ok ({code})")
+          
+          if failures:
+            print(\"\\n\".join(failures), file=sys.stderr)
+            sys.exit(1)
+          PY
       - name: Upload ZAP report
         if: always()
         uses: actions/upload-artifact@v4
@@ -222,12 +328,13 @@ jobs:
           path: |
             report_html.html
             report_json.json
+            topics_report_html.html
+            topics_report_json.json
           if-no-files-found: ignore
       - name: Stop stack
         if: always()
         run: |
-          if [ -f upstream.pid ]; then kill "$(cat upstream.pid)" || true; fi
-          rm -f upstream.pid
+          docker rm -f ra-upstream-stub >/dev/null 2>&1 || true
           if [ -f ra.pid ]; then kill "$(cat ra.pid)" || true; fi
           rm -f ra.pid
 
@@ -239,8 +346,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Start upstream stub for proxy
         run: |
-          docker run --rm --network host -p 9999:5678 hashicorp/http-echo:1.0.0 -listen :5678 -text ok > upstream.log 2>&1 &
-          echo $! > upstream.pid
+          # NOTE: with --network host, -p port mapping is ignored. Listen on :9999 directly.
+          docker run -d --name ra-upstream-stub --network host hashicorp/http-echo:1.0.0 -listen :9999 -text ok
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -262,16 +369,120 @@ jobs:
             sleep 2
           done
           echo "ra did not become ready in time"
+          echo "==> upstream container status"
+          docker ps -a --filter name=ra-upstream-stub || true
+          docker logs --tail 200 ra-upstream-stub || true
           test -f ra.log && tail -n 200 ra.log || true
           exit 1
       - name: Prepare workspace for ZAP reports
         run: |
           # ZAP container runs as non-root user; ensure it can write into mounted workspace.
           sudo chmod -R a+rwx "$GITHUB_WORKSPACE"
-      - name: OWASP ZAP (topics autorun)
+      - name: OWASP ZAP full scan (action)
+        uses: zaproxy/action-full-scan@v0.13.0
+        with:
+          target: "http://localhost:8080"
+          allow_issue_writing: false
+          cmd_options: "-I -m 10 -r report_html.html -J report_json.json"
+      - name: Topics POST (autorun plan)
+        continue-on-error: true
         run: |
           docker run --rm --network host -v "${PWD}:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
-            zap.sh -cmd -autorun /zap/wrk/.zap/zap-topics-plan.yaml
+            zap.sh -cmd -port 8090 -autorun /zap/wrk/.zap/zap-topics-full.yaml
+      - name: Topics negative-cases regression check
+        run: |
+          python3 - <<'PY'
+          import json
+          import sys
+          import urllib.request
+          import urllib.error
+          
+          BASE = "http://localhost:8080"
+          TOPIC = "/topics/dev1s.example.doc.test.v1"
+          
+          def req(method, path, headers=None, body=None):
+            headers = headers or {}
+            data = None if body is None else body.encode("utf-8")
+            r = urllib.request.Request(BASE + path, data=data, headers=headers, method=method)
+            try:
+              with urllib.request.urlopen(r, timeout=5) as resp:
+                return resp.getcode()
+            except urllib.error.HTTPError as e:
+              return e.code
+          
+          good_body = json.dumps({
+            "value_schema": "{\"type\":\"record\",\"name\":\"Event\",\"fields\":[{\"name\":\"envelope\",\"type\":{\"type\":\"record\",\"name\":\"Envelope\",\"fields\":[{\"name\":\"meta\",\"type\":{\"type\":\"record\",\"name\":\"Meta\",\"fields\":[{\"name\":\"eventId\",\"type\":\"string\"},{\"name\":\"entityKey\",\"type\":\"string\"},{\"name\":\"operation\",\"type\":\"string\"},{\"name\":\"eventTime\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"}},{\"name\":\"eventTimeZone\",\"type\":\"string\"}]}} ,{\"name\":\"tech\",\"type\":{\"type\":\"record\",\"name\":\"Tech\",\"fields\":[{\"name\":\"sourceSystem\",\"type\":\"string\"},{\"name\":\"schemaVersion\",\"type\":\"int\"},{\"name\":\"producedAt\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"}}]}}]}},{\"name\":\"payload\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"Payload\",\"fields\":[{\"name\":\"value\",\"type\":\"string\"}]}],\"default\":null}]}",
+            "records": [{
+              "key": "entity-1",
+              "value": {
+                "envelope": {
+                  "meta": {
+                    "eventId": "00000000-0000-0000-0000-000000000001",
+                    "entityKey": "entity-1",
+                    "operation": "CREATE",
+                    "eventTime": 1743849600000000,
+                    "eventTimeZone": "Europe/Moscow"
+                  },
+                  "tech": {
+                    "sourceSystem": "DAST",
+                    "schemaVersion": 0,
+                    "producedAt": 1743849600000000
+                  }
+                },
+                "payload": { "Payload": { "value": "ok" } }
+              }
+            }]
+          })
+          
+          cases = [
+            ("topics_wrong_content_type", "POST", TOPIC,
+              {"Content-Type": "application/json"}, good_body, "4xx"),
+            ("topics_empty_body", "POST", TOPIC,
+              {"Content-Type": "application/vnd.kafka.avro.v2+json"}, "", "4xx"),
+            ("topics_malformed_json", "POST", TOPIC,
+              {"Content-Type": "application/vnd.kafka.avro.v2+json"}, "{\"records\":", "4xx"),
+            ("topics_invalid_envelope", "POST", TOPIC,
+              {"Content-Type": "application/vnd.kafka.avro.v2+json"}, json.dumps({
+                "records": [{
+                  "key": "entity-3",
+                  "value": {
+                    "envelope": {
+                      "meta": {
+                        "eventId": "00000000-0000-0000-0000-000000000003",
+                        "entityKey": "entity-3",
+                        "operation": "CREATE",
+                        "eventTime": 1743849600000000,
+                        "eventTimeZone": "MSK"
+                      },
+                      "tech": { "sourceSystem": "DAST", "schemaVersion": 1, "producedAt": 1743849600000000 }
+                    },
+                    "payload": { "Payload": { "value": "ok" } }
+                  }
+                }]
+              }), "4xx"),
+            ("auth_missing_original_uri", "GET", "/auth",
+              {"X-Original-Method": "POST", "X-Real-Ip": "127.0.0.1"}, None, "4xx"),
+            ("auth_wrong_content_type_header_for_post", "GET", "/auth",
+              {"X-Original-Uri": TOPIC, "X-Original-Method": "POST", "Content-Type": "application/json", "X-Real-Ip": "127.0.0.1"}, None, "4xx"),
+          ]
+          
+          failures = []
+          for name, method, path, headers, body, expected in cases:
+            code = req(method, path, headers=headers, body=body)
+            ok = 400 <= code <= 499
+            if 200 <= code <= 399:
+              failures.append(f"{name}: regression (unexpected {code})")
+            elif 500 <= code <= 599:
+              failures.append(f"{name}: regression (server error {code})")
+            elif not ok:
+              failures.append(f"{name}: unexpected status {code} (expected 4xx)")
+            else:
+              print(f"{name}: ok ({code})")
+          
+          if failures:
+            print(\"\\n\".join(failures), file=sys.stderr)
+            sys.exit(1)
+          PY
       - name: Upload ZAP report
         if: always()
         uses: actions/upload-artifact@v4
@@ -280,11 +491,12 @@ jobs:
           path: |
             report_html.html
             report_json.json
+            topics_full_report_html.html
+            topics_full_report_json.json
           if-no-files-found: ignore
       - name: Stop stack
         if: always()
         run: |
-          if [ -f upstream.pid ]; then kill "$(cat upstream.pid)" || true; fi
-          rm -f upstream.pid
+          docker rm -f ra-upstream-stub >/dev/null 2>&1 || true
           if [ -f ra.pid ]; then kill "$(cat ra.pid)" || true; fi
           rm -f ra.pid
