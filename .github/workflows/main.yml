@@ -21,7 +21,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.26.2"
+          go-version: "1.26.3"
           cache: true
       - name: Install golangci-lint v2.11.4
         run: GOBIN="${PWD}/bin" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4
@@ -36,7 +36,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.26.2"
+          go-version: "1.26.3"
           cache: true
       - name: Install golangci-lint v2.11.4
         run: GOBIN="${PWD}/bin" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4
@@ -51,7 +51,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.26.2"
+          go-version: "1.26.3"
           cache: true
       - name: Download modules
         run: go mod download
@@ -70,7 +70,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.26.2"
+          go-version: "1.26.3"
           cache: true
       - name: Download modules
         run: go mod download
@@ -89,7 +89,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.26.2"
+          go-version: "1.26.3"
           cache: true
       - name: Run gosec
         run: go run github.com/securego/gosec/v2/cmd/gosec@v2.25.0 -exclude-dir='\.gomodcache' -exclude-dir='\.gocache' ./...
@@ -102,7 +102,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.26.2"
+          go-version: "1.26.3"
           cache: true
       - name: Run govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
@@ -182,18 +182,19 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.26.2"
+          go-version: "1.26.3"
           cache: true
       - name: Build RA binary
-        run: go build -tags "nomsgpack" -o ra .
+        run: go build -tags "nomsgpack,company" -o ra .
       - name: Start RA server
         run: |
           RA_CONFIG_FILE=example/config-ci.yml ./ra > ra.log 2>&1 &
           echo $! > ra.pid
       - name: Wait for RA
         run: |
+          set -euo pipefail
           for i in $(seq 1 30); do
-            if curl -fsS http://localhost:8080/metrics >/dev/null 2>&1; then
+            if ./ra -healthcheck -healthcheck-url http://localhost:8080/ready >/dev/null 2>&1; then
               exit 0
             fi
             sleep 2

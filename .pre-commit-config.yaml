@@ -4,6 +4,8 @@ repos:
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
       - id: check-merge-conflict
 
   - repo: https://github.com/gitleaks/gitleaks
@@ -14,12 +16,29 @@ repos:
 
   - repo: local
     hooks:
+      - id: golangci-lint-public
+        name: golangci-lint (public)
+        entry: bash scripts/pre-commit-golangci-lint.sh public
+        language: system
+        pass_filenames: false
+        types: [go]
+        stages: [pre-commit]
+
+      - id: golangci-lint-company
+        name: golangci-lint (company)
+        entry: bash scripts/pre-commit-golangci-lint.sh company
+        language: system
+        pass_filenames: false
+        types: [go]
+        stages: [pre-commit]
+
       - id: qa-fast
         name: qa-fast
         entry: make qa-fast
         language: system
         pass_filenames: false
         stages: [pre-commit]
+
       - id: qa-security
         name: qa-security
         entry: make qa-security
