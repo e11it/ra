@@ -179,6 +179,10 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
+      - name: Start upstream stub for proxy
+        run: |
+          docker run --rm --network host -p 9999:5678 hashicorp/http-echo:1.0.0 -listen :5678 -text ok > upstream.log 2>&1 &
+          echo $! > upstream.pid
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -206,12 +210,10 @@ jobs:
         run: |
           # ZAP container runs as non-root user; ensure it can write into mounted workspace.
           sudo chmod -R a+rwx "$GITHUB_WORKSPACE"
-      - name: OWASP ZAP baseline
-        uses: zaproxy/action-baseline@v0.15.0
-        with:
-          target: "http://localhost:8080"
-          allow_issue_writing: false
-          cmd_options: "-I -m 3 -r report_html.html -J report_json.json"
+      - name: OWASP ZAP (topics autorun)
+        run: |
+          docker run --rm --network host -v "${PWD}:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
+            zap.sh -cmd -autorun /zap/wrk/.zap/zap-topics-plan.yaml
       - name: Upload ZAP report
         if: always()
         uses: actions/upload-artifact@v4
@@ -224,6 +226,8 @@ jobs:
       - name: Stop stack
         if: always()
         run: |
+          if [ -f upstream.pid ]; then kill "$(cat upstream.pid)" || true; fi
+          rm -f upstream.pid
           if [ -f ra.pid ]; then kill "$(cat ra.pid)" || true; fi
           rm -f ra.pid
 
@@ -233,6 +237,10 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
+      - name: Start upstream stub for proxy
+        run: |
+          docker run --rm --network host -p 9999:5678 hashicorp/http-echo:1.0.0 -listen :5678 -text ok > upstream.log 2>&1 &
+          echo $! > upstream.pid
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -260,13 +268,10 @@ jobs:
         run: |
           # ZAP container runs as non-root user; ensure it can write into mounted workspace.
           sudo chmod -R a+rwx "$GITHUB_WORKSPACE"
-      - name: OWASP ZAP full scan
-        uses: zaproxy/action-full-scan@v0.13.0
-        with:
-          target: "http://localhost:8080"
-          allow_issue_writing: false
-          artifact_name: "zap-full-scan"
-          cmd_options: "-I -m 10 -r report_html.html -J report_json.json"
+      - name: OWASP ZAP (topics autorun)
+        run: |
+          docker run --rm --network host -v "${PWD}:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
+            zap.sh -cmd -autorun /zap/wrk/.zap/zap-topics-plan.yaml
       - name: Upload ZAP report
         if: always()
         uses: actions/upload-artifact@v4
@@ -279,5 +284,7 @@ jobs:
       - name: Stop stack
         if: always()
         run: |
+          if [ -f upstream.pid ]; then kill "$(cat upstream.pid)" || true; fi
+          rm -f upstream.pid
           if [ -f ra.pid ]; then kill "$(cat ra.pid)" || true; fi
           rm -f ra.pid

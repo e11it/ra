@@ -3,7 +3,8 @@ trimurlprefix: /topics/
 access_log:
   exclude_paths: [/metrics, /health, /ready, /swagger, /swagger/ra.yaml]
 proxy:
-  enabled: false
+  enabled: true
+  proxyhost: "http://localhost:9999"
 auth:
   urlvalidreg: ^dev1s\..+?$
   acl:
