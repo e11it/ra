@@ -24,13 +24,6 @@ func TestUnionHelpers(t *testing.T) {
 	assert.False(t, rep.HasErrors())
 }
 
-func TestIsSemverLike(t *testing.T) {
-	rep := validate.NewReport()
-	assert.True(t, IsSemverLike(rep, 0, "records[0].schemaVersion", "1.2.3"))
-	assert.False(t, IsSemverLike(rep, 0, "records[0].schemaVersion", "abc"))
-	assert.True(t, rep.HasErrors())
-}
-
 func TestAsTimestampMicros(t *testing.T) {
 	tests := []struct {
 		name     string

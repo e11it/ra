@@ -124,8 +124,8 @@ func (c *envelopeCheck) checkTech(ctx *validate.CheckContext, rep *validate.Repo
 	schemaVersionRaw, ok := vcheck.RequireField(rep, ctx.Index, base, tech, "schemaVersion")
 	if ok {
 		schemaPath := vcheck.PathJoin(base, "schemaVersion")
-		if schemaVersion, ok := vcheck.AsString(rep, ctx.Index, schemaPath, schemaVersionRaw); ok {
-			vcheck.IsSemverLike(rep, ctx.Index, schemaPath, schemaVersion)
+		if schemaVersion, ok := vcheck.AsInt64(rep, ctx.Index, schemaPath, schemaVersionRaw); ok && schemaVersion != 0 {
+			rep.AddError(ctx.Index, schemaPath, "invalid_value", "schemaVersion must be 0")
 		}
 	}
 

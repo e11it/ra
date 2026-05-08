@@ -3,7 +3,6 @@ package vcheck
 import (
 	"fmt"
 	"math"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -13,7 +12,6 @@ import (
 	"github.com/e11it/ra/pkg/validate"
 )
 
-var semverLikeRe = regexp.MustCompile(`^[0-9]+(\.[0-9]+){0,2}([\-+][A-Za-z0-9.\-]+)?$`)
 var ianaZoneValidity sync.Map // map[string]bool
 
 // PathJoin appends field to a dotted path.
@@ -170,19 +168,6 @@ func IsIANAZone(rep *validate.Report, rec int, path, value string) bool {
 		return false
 	}
 	return true
-}
-
-// IsSemverLike validates simple semver-like values such as "1", "1.2" or "1.2.3".
-func IsSemverLike(rep *validate.Report, rec int, path, value string) bool {
-	if value == "" {
-		rep.AddError(rec, path, "missing_field", "version is required")
-		return false
-	}
-	if semverLikeRe.MatchString(value) {
-		return true
-	}
-	rep.AddError(rec, path, "invalid_format", "version must match semver-like format")
-	return false
 }
 
 // UnionString extracts Avro union [null,string] value.

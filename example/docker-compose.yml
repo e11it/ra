@@ -38,7 +38,7 @@ services:
           connections:
             local:
               properties:
-                bootstrap.servers: "kafka:9092"
+                bootstrap.servers: "broker:29092"
               schema-registry:
                 url: "http://schema-registry:8081"
                 type: "confluent" # or "tibco"
@@ -49,8 +49,6 @@ services:
     restart: always
     logging: *default-logging
     init: true
-    ports:
-      - 8080:8080
     healthcheck:
       test: [ "CMD", "/app/bin/ra", "-healthcheck" ]
       interval: 15s

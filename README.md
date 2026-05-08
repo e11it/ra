@@ -40,6 +40,23 @@ make openapi-gen
 
 Details: `docs/security.md`.
 
+### Pre-commit hooks (локально)
+
+В репозитории настроен `pre-commit` для базовых sanity-checks и `golangci-lint` (public + company).
+
+Установка и включение:
+
+```bash
+python3 -m pip install --user pre-commit
+pre-commit install
+```
+
+Запуск вручную:
+
+```bash
+pre-commit run -a
+```
+
 ## Конфиг (ключевые блоки)
 
 ```yaml

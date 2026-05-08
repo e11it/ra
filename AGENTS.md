@@ -36,7 +36,7 @@
 
 ## Версии и окружение
 
-- Go `1.26.2` (Docker-образы в `docker/*.Dockerfile`).
+- Go `1.26.3` (Docker-образы в `docker/*.Dockerfile`).
 - Запуск контейнеров — через `Makefile` (`make docker-up`, `make docker-down`, и т.д.).
 
 ## Learned User Preferences
@@ -67,3 +67,4 @@
 - Access-log в Gin поддерживает конфигурируемые исключения технических endpoint через `exclude_paths`; пустой список в YAML переопределяет дефолты configor.
 - Security-профиль использует `gosec`, `govulncheck` и `gitleaks`; для `gosec` нужны исключения `.gomodcache`/`.gocache`, чтобы не обходить локальные кеши.
 - Docker publish для git tags должен использовать GitHub Environment `docker`: username из `vars.DOCKER_USERNAME`, token из `secrets.DOCKERHUB_TOKEN`, образ `e11it/ra:<tag>`.
+- В режиме `extendedAvroTypes` strict-union значения ожидаются в tagged-виде (`{"string":...}`, `{"date":...}`), при этом `eventTime`/`producedAt` остаются не-union полями и валидируются как обычные timestamp-строки.

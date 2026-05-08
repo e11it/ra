@@ -54,7 +54,7 @@ func TestCompanyChecks_ValidBatch(t *testing.T) {
           },
           "tech": {
             "sourceSystem": "crm",
-            "schemaVersion": "1.0.0",
+            "schemaVersion": 0,
             "producedAt": 1745001234600000
           }
         },
@@ -104,6 +104,89 @@ func TestCompanyChecks_CollectsMultipleIssues(t *testing.T) {
 	assert.Contains(t, rep.FormatList(), "invalid_payload_state")
 }
 
+func TestCompanyChecks_SchemaVersionValidation(t *testing.T) {
+	tests := []struct {
+		name           string
+		schemaVersion  string
+		expectedIssues []string
+	}{
+		{
+			name:           "valid_zero",
+			schemaVersion:  `"schemaVersion": 0,`,
+			expectedIssues: nil,
+		},
+		{
+			name:          "non_zero_int",
+			schemaVersion: `"schemaVersion": 1,`,
+			expectedIssues: []string{
+				"records[0].envelope.tech.schemaVersion",
+				"invalid_value",
+			},
+		},
+		{
+			name:          "string_type",
+			schemaVersion: `"schemaVersion": "1.0.0",`,
+			expectedIssues: []string{
+				"records[0].envelope.tech.schemaVersion",
+				"invalid_type",
+			},
+		},
+		{
+			name:          "missing_field",
+			schemaVersion: ``,
+			expectedIssues: []string{
+				"records[0].envelope.tech.schemaVersion",
+				"missing_field",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v, err := payloadvalidate.NewValidatorFromConfig(companyConfig())
+			require.NoError(t, err)
+
+			body := []byte(`{
+  "records": [
+    {
+      "key": "k",
+      "value": {
+        "envelope": {
+          "meta": {
+            "eventId": "0192f8b9-7a1c-7c4e-9d3a-1f2c3a4b5c6d",
+            "entityKey": "k",
+            "operation": "UPDATE",
+            "eventTime": 1745001234567890,
+            "eventTimeZone": "UTC"
+          },
+          "tech": {
+            "sourceSystem": "crm",
+            ` + tt.schemaVersion + `
+            "producedAt": 1745001234600000
+          }
+        },
+        "payload": {"x": 1},
+        "payloadBefore": null
+      }
+    }
+  ]
+}`)
+
+			rep := v.Validate(body)
+			if len(tt.expectedIssues) == 0 {
+				assert.False(t, rep.HasErrors())
+				return
+			}
+
+			require.True(t, rep.HasErrors())
+			issues := rep.FormatList()
+			for _, issue := range tt.expectedIssues {
+				assert.Contains(t, issues, issue)
+			}
+		})
+	}
+}
+
 func TestCompanyChecks_UnknownCheckFails(t *testing.T) {
 	_, err := payloadvalidate.NewValidatorFromConfig(validate.Config{
 		Enabled: true,
@@ -143,7 +226,7 @@ func TestCompanyChecks_ExtendedAvroTypes_ValidBatch(t *testing.T) {
           },
           "tech": {
             "sourceSystem": "crm",
-            "schemaVersion": "1.0.0",
+            "schemaVersion": 0,
             "producedAt": "2024-04-19T10:00:00.001Z",
             "traceId": {"string": "0192f8b9-7a1c-7c4e-9d3a-1f2c3a4b5c6d"}
           }
@@ -177,7 +260,7 @@ func TestCompanyChecks_ExtendedAvroTypes_TraceIDMustBeUUID(t *testing.T) {
           },
           "tech": {
             "sourceSystem": "crm",
-            "schemaVersion": "1.0.0",
+            "schemaVersion": 0,
             "producedAt": "2024-04-19T10:00:00.001Z",
             "traceId": {"string": "not-a-uuid"}
           }
@@ -215,7 +298,7 @@ func TestCompanyChecks_ExtendedAvroTypes_EntityKeyMustBePlainString(t *testing.T
           },
           "tech": {
             "sourceSystem": "crm",
-            "schemaVersion": "1.0.0",
+            "schemaVersion": 0,
             "producedAt": "2024-04-19T10:00:00.001Z"
           }
         },
@@ -252,7 +335,7 @@ func TestCompanyChecks_ExtendedAvroTypes_StringsRejectedWhenDisabled(t *testing.
           },
           "tech": {
             "sourceSystem": "crm",
-            "schemaVersion": "1.0.0",
+            "schemaVersion": 0,
             "producedAt": "2024-04-19T10:00:00.001Z"
           }
         },
