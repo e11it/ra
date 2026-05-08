@@ -202,18 +202,80 @@ jobs:
           echo "ra did not become ready in time"
           test -f ra.log && tail -n 200 ra.log || true
           exit 1
+      - name: Prepare workspace for ZAP reports
+        run: |
+          # ZAP container runs as non-root user; ensure it can write into mounted workspace.
+          sudo chmod -R a+rwx "$GITHUB_WORKSPACE"
       - name: OWASP ZAP baseline
-        uses: zaproxy/action-baseline@v0.12.0
+        uses: zaproxy/action-baseline@v0.15.0
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           target: "http://localhost:8080"
-          cmd_options: "-I -m 3 -r zap-report.html"
+          allow_issue_writing: false
+          cmd_options: "-I -m 3 -r report_html.html -J report_json.json"
       - name: Upload ZAP report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: zap-report
-          path: zap-report.html
+          path: |
+            report_html.html
+            report_json.json
+          if-no-files-found: ignore
+      - name: Stop stack
+        if: always()
+        run: |
+          if [ -f ra.pid ]; then kill "$(cat ra.pid)" || true; fi
+          rm -f ra.pid
+
+  dast-full:
+    name: DAST manual (OWASP ZAP full scan)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.3"
+          cache: true
+      - name: Build RA binary
+        run: go build -tags "nomsgpack,company" -o ra .
+      - name: Start RA server
+        run: |
+          RA_CONFIG_FILE=example/config-ci.yml ./ra > ra.log 2>&1 &
+          echo $! > ra.pid
+      - name: Wait for RA
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if ./ra -healthcheck -healthcheck-url http://localhost:8080/ready >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "ra did not become ready in time"
+          test -f ra.log && tail -n 200 ra.log || true
+          exit 1
+      - name: Prepare workspace for ZAP reports
+        run: |
+          # ZAP container runs as non-root user; ensure it can write into mounted workspace.
+          sudo chmod -R a+rwx "$GITHUB_WORKSPACE"
+      - name: OWASP ZAP full scan
+        uses: zaproxy/action-full-scan@v0.13.0
+        with:
+          target: "http://localhost:8080"
+          allow_issue_writing: false
+          artifact_name: "zap-full-scan"
+          cmd_options: "-I -m 10 -r report_html.html -J report_json.json"
+      - name: Upload ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-full-report
+          path: |
+            report_html.html
+            report_json.json
+          if-no-files-found: ignore
       - name: Stop stack
         if: always()
         run: |
