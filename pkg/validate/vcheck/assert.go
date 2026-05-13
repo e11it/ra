@@ -87,9 +87,9 @@ func AsInt64(rep *validate.Report, rec int, path string, value any) (int64, bool
 	}
 }
 
-// AsTimestampMicros checks timestamp-micros values.
+// AsTimestampMillis checks timestamp-millis values.
 // By default accepts integer JSON values; in extended mode also accepts RFC3339 strings.
-func AsTimestampMicros(rep *validate.Report, rec int, path string, value any, extended bool) (int64, bool) {
+func AsTimestampMillis(rep *validate.Report, rec int, path string, value any, extended bool) (int64, bool) {
 	if !extended {
 		return AsInt64(rep, rec, path, value)
 	}
@@ -113,7 +113,7 @@ func AsTimestampMicros(rep *validate.Report, rec int, path string, value any, ex
 		}
 	}
 
-	return ts.UnixMicro(), true
+	return ts.UnixMilli(), true
 }
 
 // OneOf validates catalog membership.

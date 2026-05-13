@@ -24,7 +24,7 @@ func TestUnionHelpers(t *testing.T) {
 	assert.False(t, rep.HasErrors())
 }
 
-func TestAsTimestampMicros(t *testing.T) {
+func TestAsTimestampMillis(t *testing.T) {
 	tests := []struct {
 		name     string
 		value    any
@@ -33,13 +33,13 @@ func TestAsTimestampMicros(t *testing.T) {
 	}{
 		{
 			name:     "integer value accepted in standard mode",
-			value:    float64(1745001234567890),
+			value:    float64(1745001234567),
 			extended: false,
 			ok:       true,
 		},
 		{
 			name:     "integer value accepted in extended mode",
-			value:    float64(1745001234567890),
+			value:    float64(1745001234567),
 			extended: true,
 			ok:       true,
 		},
@@ -66,7 +66,7 @@ func TestAsTimestampMicros(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rep := validate.NewReport()
-			got, ok := AsTimestampMicros(rep, 0, "records[0].envelope.meta.eventTime", tt.value, tt.extended)
+			got, ok := AsTimestampMillis(rep, 0, "records[0].envelope.meta.eventTime", tt.value, tt.extended)
 			assert.Equal(t, tt.ok, ok)
 			if tt.ok {
 				assert.False(t, rep.HasErrors())
@@ -78,9 +78,9 @@ func TestAsTimestampMicros(t *testing.T) {
 	}
 }
 
-func TestAsTimestampMicros_RFC3339Value(t *testing.T) {
+func TestAsTimestampMillis_RFC3339Value(t *testing.T) {
 	rep := validate.NewReport()
-	got, ok := AsTimestampMicros(rep, 0, "records[0].envelope.meta.eventTime", "2024-04-19T10:00:00Z", true)
+	got, ok := AsTimestampMillis(rep, 0, "records[0].envelope.meta.eventTime", "2024-04-19T10:00:00Z", true)
 	require.True(t, ok)
-	assert.Equal(t, int64(1713520800000000), got)
+	assert.Equal(t, int64(1713520800000), got)
 }

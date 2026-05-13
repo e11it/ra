@@ -102,7 +102,7 @@ func (c *envelopeCheck) checkMeta(ctx *validate.CheckContext, rep *validate.Repo
 
 	eventTimeRaw, ok := vcheck.RequireField(rep, ctx.Index, base, meta, "eventTime")
 	if ok {
-		vcheck.AsTimestampMicros(rep, ctx.Index, vcheck.PathJoin(base, "eventTime"), eventTimeRaw, c.extendedAvroTypes)
+		vcheck.AsTimestampMillis(rep, ctx.Index, vcheck.PathJoin(base, "eventTime"), eventTimeRaw, c.extendedAvroTypes)
 	}
 
 	timeZoneRaw, ok := vcheck.RequireField(rep, ctx.Index, base, meta, "eventTimeZone")
@@ -131,7 +131,7 @@ func (c *envelopeCheck) checkTech(ctx *validate.CheckContext, rep *validate.Repo
 
 	producedAtRaw, ok := vcheck.RequireField(rep, ctx.Index, base, tech, "producedAt")
 	if ok {
-		vcheck.AsTimestampMicros(rep, ctx.Index, vcheck.PathJoin(base, "producedAt"), producedAtRaw, c.extendedAvroTypes)
+		vcheck.AsTimestampMillis(rep, ctx.Index, vcheck.PathJoin(base, "producedAt"), producedAtRaw, c.extendedAvroTypes)
 	}
 
 	if traceRaw, exists := tech["traceId"]; exists {

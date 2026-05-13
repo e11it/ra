@@ -49,13 +49,13 @@ func TestCompanyChecks_ValidBatch(t *testing.T) {
             "eventId": "0192f8b9-7a1c-7c4e-9d3a-1f2c3a4b5c6d",
             "entityKey": "k",
             "operation": "UPDATE",
-            "eventTime": 1745001234567890,
+            "eventTime": 1745001234567,
             "eventTimeZone": "UTC"
           },
           "tech": {
             "sourceSystem": "crm",
             "schemaVersion": 0,
-            "producedAt": 1745001234600000
+            "producedAt": 1745001234600
           }
         },
         "payload": {"x": 1},
@@ -156,13 +156,13 @@ func TestCompanyChecks_SchemaVersionValidation(t *testing.T) {
             "eventId": "0192f8b9-7a1c-7c4e-9d3a-1f2c3a4b5c6d",
             "entityKey": "k",
             "operation": "UPDATE",
-            "eventTime": 1745001234567890,
+            "eventTime": 1745001234567,
             "eventTimeZone": "UTC"
           },
           "tech": {
             "sourceSystem": "crm",
             ` + tt.schemaVersion + `
-            "producedAt": 1745001234600000
+            "producedAt": 1745001234600
           }
         },
         "payload": {"x": 1},
