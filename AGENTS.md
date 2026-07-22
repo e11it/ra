@@ -36,7 +36,7 @@
 
 ## Версии и окружение
 
-- Go `1.26.3` (Docker-образы в `docker/*.Dockerfile`).
+- Точная версия Go задаётся директивой `go` в `go.mod`; CI и Docker-сборка читают её оттуда.
 - Запуск контейнеров — через `Makefile` (`make docker-up`, `make docker-down`, и т.д.).
 
 ## Learned User Preferences

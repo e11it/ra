@@ -1,11 +1,12 @@
 PROJECTNAME ?= $(shell basename "$(PWD)")
 DOCKER_USER=e11it
+GO_VERSION := $(strip $(shell sed -n 's/^go //p' go.mod))
 GO_TAGS ?= nomsgpack
 RA_DOCKER_VARIANT ?= public
 RA_VERSION ?= $(RA_DOCKER_VARIANT)
 SECURITY_GOMODCACHE ?= /tmp/ra-gomodcache
 SECURITY_GOCACHE ?= /tmp/ra-gocache
-SECURITY_GOTOOLCHAIN ?= go1.26.5
+SECURITY_GOTOOLCHAIN ?= go$(GO_VERSION)
 PKGS := $(shell go list ./... | grep -v '/\.gomodcache/' | grep -v '/\.gocache/')
 PKG_DIRS := $(shell go list -f '{{.Dir}}' ./... | grep -v '/\.gomodcache/' | grep -v '/\.gocache/')
 
@@ -18,12 +19,12 @@ endif
 ## docker-modules: Build golang:modules docker
 docker-modules:
 	@echo "  >  Warm build deps stage from RA.Dockerfile"
-	@docker build --target=modules --tag=$(PROJECTNAME)-modules --file=docker/RA.Dockerfile .
+	@docker build --build-arg GOLANG_VERSION="$(GO_VERSION)" --target=modules --tag=$(PROJECTNAME)-modules --file=docker/RA.Dockerfile .
 
 ## docker-build: Build application docker image
 ## --no-cache && export BUILDKIT_PROGRESS=plain
 docker-build:
-	@docker build --build-arg GO_TAGS="$(DOCKER_GO_TAGS)" --tag=$(PROJECTNAME):$(RA_VERSION) --file=docker/RA.Dockerfile .
+	@docker build --build-arg GOLANG_VERSION="$(GO_VERSION)" --build-arg GO_TAGS="$(DOCKER_GO_TAGS)" --tag=$(PROJECTNAME):$(RA_VERSION) --file=docker/RA.Dockerfile .
 
 ## docker-up: Run docker-compose application from example dir
 docker-up: docker-build

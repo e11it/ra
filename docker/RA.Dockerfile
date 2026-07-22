@@ -1,4 +1,5 @@
-ARG GOLANG_VERSION=1.26.5
+# Makefile and CI read the canonical version from go.mod and pass it explicitly.
+ARG GOLANG_VERSION=not-set
 ARG APP_VERSION=latest
 ARG APP_IMAGE_DATE_CREATED
 ARG APP_COMMIT_SHA
