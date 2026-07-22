@@ -5,7 +5,7 @@ RA_DOCKER_VARIANT ?= public
 RA_VERSION ?= $(RA_DOCKER_VARIANT)
 SECURITY_GOMODCACHE ?= /tmp/ra-gomodcache
 SECURITY_GOCACHE ?= /tmp/ra-gocache
-SECURITY_GOTOOLCHAIN ?= go1.26.3
+SECURITY_GOTOOLCHAIN ?= go1.26.5
 PKGS := $(shell go list ./... | grep -v '/\.gomodcache/' | grep -v '/\.gocache/')
 PKG_DIRS := $(shell go list -f '{{.Dir}}' ./... | grep -v '/\.gomodcache/' | grep -v '/\.gocache/')
 

@@ -42,7 +42,7 @@
 ## Learned User Preferences
 
 - Корпоративную логику держать вне публичных пакетов: envelope/типы/чекеры корп-стандарта не оставлять в `pkg/payloadvalidate` и `pkg/validate`, а переносить в `pkg/validate/company`.
-- Не добавлять в конфиг проверки, которые уже закрыты выше по стеку (размер тела — nginx/Kafka REST; content-type — существующие per-topic правила).
+- Не добавлять в конфиг проверки, которые уже закрыты выше по стеку (размер тела — nginx/Kafka REST; content-type — существующие per-topic правила). Если Kafka REST уже валидирует Avro-схему/типы, в RA оставлять только бизнес-правила и не дублировать value-checks (например для `businessDate`/`businessKey`/`sequence`).
 - Proxy-режим должен быть best-effort: при ошибке декодирования ответа upstream передавать исходный статус/тело клиенту, а не возвращать 500 и не обрывать соединение.
 - В публичных пакетах не тянуть backward-compat: при миграциях удалять неиспользуемые типы и переходные обёртки.
 - Один multi-stage `docker/RA.Dockerfile` с выбором варианта сборки через build tag/ENV предпочтительнее отдельных Dockerfile на public/company.
@@ -60,7 +60,7 @@
 - `pkg/validate/` — только публичные контракты чекеров и реестр; корпоративные проверки (envelope, `entityKey`, `operation`, `eventTimeZone`) живут в `pkg/validate/company/` за build tag `company`.
 - `pkg/payloadvalidate/` — protocol-layer: парсит produce-запросы Kafka REST v2 и прогоняет зарегистрированные чекеры; корп-envelope и корп-специфика сюда не попадают.
 - Tombstone-сценарий реализован отдельным generic-чекером `is_tombstone` в `pkg/validate/common`: он останавливает pipeline записи со статусом success.
-- По корпстандарту поле envelope `eventTimeZone` — обязательное строковое (tombstone — исключение).
+- По корпстандарту поля envelope: `eventTimeZone` — обязательное строковое (tombstone — исключение), `entityKey` — обязательное строковое (не union), `schemaVersion` — обязательное целое и всегда `0`.
 - Вариант Docker-сборки (public/company) выбирается через build tag/ENV в едином `docker/RA.Dockerfile`; отдельный `docker/Modules.Dockerfile` удалён.
 - Канонический реестр кодов ошибок RA хранится в `internal/app/ra/error_codes.go` и используется для JSON error contract.
 - OpenAPI поддерживается в `api/openapi/`: `oapi-codegen` генерирует `openapi.gen.go`, а сервер отдает YAML и HTML-документацию.
