@@ -2,7 +2,9 @@ package ra
 
 import (
 	"fmt"
+	"maps"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -113,6 +115,26 @@ func (ra *Ra) currentState() *runtimeState {
 	return ra.state.Load()
 }
 
+func startupOnlyConfigChanges(active, candidate *Config) []string {
+	changes := make([]string, 0, 4)
+	if active.Addr != candidate.Addr {
+		changes = append(changes, "addr")
+	}
+	if active.Proxy.Enabled != candidate.Proxy.Enabled {
+		changes = append(changes, "proxy.enabled")
+	}
+	if active.Proxy.ProxyHost != candidate.Proxy.ProxyHost {
+		changes = append(changes, "proxy.proxyhost")
+	}
+	if !maps.Equal(
+		buildAccessLogExcludeSet(active.AccessLog.ExcludePaths),
+		buildAccessLogExcludeSet(candidate.AccessLog.ExcludePaths),
+	) {
+		changes = append(changes, "access_log.exclude_paths")
+	}
+	return changes
+}
+
 // Возращает флаг был ли перезагружен конфиг(или он не изменился)
 // и ошибку
 func (ra *Ra) ReloadHandler() (bool, error) {
@@ -133,6 +155,12 @@ func (ra *Ra) reloadConfig(buildState func(*Config) (*runtimeState, error)) (boo
 	}
 	if config, err = ra.loadConfig(); err != nil {
 		return false, err
+	}
+	if changes := startupOnlyConfigChanges(ra.currentState().config, config); len(changes) > 0 {
+		return false, fmt.Errorf(
+			"startup-only config fields changed: %s; restart required",
+			strings.Join(changes, ", "),
+		)
 	}
 	state, err := buildState(config)
 	if err != nil {

@@ -1,4 +1,6 @@
 trimurlprefix: /topics/
+# Startup-only (restart required): addr, proxy.enabled, proxy.proxyhost,
+# access_log.exclude_paths. A reload changing any of them is rejected entirely.
 # Минимальный конфиг для CI/DAST: RA должен подняться даже без upstream proxy.
 access_log:
   exclude_paths: [/metrics, /health, /ready, /swagger, /swagger/ra.yaml]

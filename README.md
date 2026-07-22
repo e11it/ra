@@ -81,6 +81,13 @@ body_validation:
   checks: [no_partition, is_tombstone, envelope, payload, entity_key]
 ```
 
+`GET /reload` применяет reloadable-поля атомарно. Поля `addr`,
+`proxy.enabled`, `proxy.proxyhost` и `access_log.exclude_paths` являются
+startup-only, поскольку HTTP server/router/middleware захватывают их при старте.
+Если candidate меняет хотя бы одно из них, reload целиком отклоняется с ошибкой
+`restart required`; активная конфигурация остаётся прежней. Чтобы применить эти
+поля, перезапустите RA.
+
 nginx должен аутентифицировать клиента и передавать нормализованное имя в
 `X-Authenticated-User`. RA не использует Basic Auth как источник identity и
 доверяет этому header только если фактический socket peer (`RemoteAddr`), а не
