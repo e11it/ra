@@ -27,18 +27,34 @@ func (a *SimpleAccessController) addCheck(ac authCheck) {
 }
 
 func NewSimpleAccessController(c *Config) (AccessController, error) {
-	ac := new(SimpleAccessController)
+	if c == nil {
+		return nil, fmt.Errorf("auth config is nil")
+	}
+	if len(c.ACL) == 0 {
+		return nil, fmt.Errorf("auth acl must contain at least one rule")
+	}
 
-	ac.makeChecks(c)
+	ac := new(SimpleAccessController)
+	if err := ac.makeChecks(c); err != nil {
+		return nil, err
+	}
 
 	return ac, nil
 }
 
-func (a *SimpleAccessController) makeChecks(cfg *Config) {
+func (a *SimpleAccessController) makeChecks(cfg *Config) error {
 	a.checks = make([]authCheck, 0)
-	a.addCheck(a.getURLValidReg(cfg))
-	acl := cfg.getAclRulesCompiled()
+	urlCheck, err := a.getURLValidReg(cfg)
+	if err != nil {
+		return err
+	}
+	a.addCheck(urlCheck)
+	acl, err := cfg.getAclRulesCompiled()
+	if err != nil {
+		return err
+	}
 	a.addCheck(a.getACLVerifier(acl))
+	return nil
 }
 
 func (a *SimpleAccessController) Validate(authRequest *AuthRequest) error {
@@ -50,42 +66,42 @@ func (a *SimpleAccessController) Validate(authRequest *AuthRequest) error {
 	return nil
 }
 
-func (a *SimpleAccessController) getURLValidReg(cfg *Config) authCheck {
+func (a *SimpleAccessController) getURLValidReg(cfg *Config) (authCheck, error) {
 	if len(cfg.URLValidReg) > 0 {
-		urlRe := regexp.MustCompile(cfg.URLValidReg)
+		urlRe, err := regexp.Compile(cfg.URLValidReg)
+		if err != nil {
+			return nil, fmt.Errorf("compile url validation regexp: %w", err)
+		}
 
 		return func(authRequest *AuthRequest) error {
 			if !urlRe.MatchString(authRequest.AuthURL) {
-				return fmt.Errorf("incorrect URL")
+				return fmt.Errorf("incorrect url")
 			}
 			return nil
-		}
+		}, nil
 	}
-	return nil
+	return nil, nil
 }
 
 func (a *SimpleAccessController) getACLVerifier(acl []*aclRuleCompilded) authCheck {
-	if len(acl) > 0 {
-		return func(authRequest *AuthRequest) error {
-			var err, lastError error
+	return func(authRequest *AuthRequest) error {
+		var err, lastError error
 
-			lastError = fmt.Errorf("permission denied: no allow acl for this topic")
-			for cnt, aclEl := range acl {
-				if aclEl.IsURLMatch(authRequest.AuthURL) {
-					err = aclEl.IsAllow(
-						authRequest.ContentType,
-						authRequest.AuthUser,
-						authRequest.Method)
-					if err == nil {
-						return nil // allow
-					}
-					// save error and check next acl rules for success
-					lastError = fmt.Errorf("%w [%d]", err, cnt)
+		lastError = fmt.Errorf("permission denied: no allow acl for this topic")
+		for cnt, aclEl := range acl {
+			if aclEl.IsURLMatch(authRequest.AuthURL) {
+				err = aclEl.IsAllow(
+					authRequest.ContentType,
+					authRequest.AuthUser,
+					authRequest.Method)
+				if err == nil {
+					return nil // allow
 				}
+				// save error and check next acl rules for success
+				lastError = fmt.Errorf("%w [%d]", err, cnt)
 			}
-
-			return lastError
 		}
+
+		return lastError
 	}
-	return nil
 }

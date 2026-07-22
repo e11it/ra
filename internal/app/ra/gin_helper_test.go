@@ -12,16 +12,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
-	"github.com/e11it/ra/pkg/auth"
 	"github.com/e11it/ra/pkg/validate"
 )
-
-type allowAllAccessController struct{}
-
-func (a *allowAllAccessController) Validate(_ *auth.AuthRequest) error {
-	return nil
-}
 
 type proxyTestCase struct {
 	name              string
@@ -90,14 +84,12 @@ func runProxyCase(t *testing.T, tt proxyTestCase) {
 	}))
 	defer rest.Close()
 
-	cfg := &Config{}
+	cfg := testRuntimeConfig()
 	cfg.Proxy.Enabled = true
 	cfg.Proxy.ProxyHost = rest.URL
 
-	ra := &Ra{
-		config: cfg,
-		auth:   &allowAllAccessController{},
-	}
+	ra, err := newRAFromConfig(cfg)
+	require.NoError(t, err)
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
@@ -196,17 +188,22 @@ func TestAuthMiddleware_EmptyBodyWhenValidationEnabled(t *testing.T) {
 			}))
 			defer rest.Close()
 
-			cfg := &Config{}
+			cfg := testRuntimeConfig()
 			cfg.Proxy.Enabled = true
 			cfg.Proxy.ProxyHost = rest.URL
-			cfg.BodyValidation.Enabled = tt.enabled
 
-			ra := &Ra{
-				config: cfg,
-				auth:   &allowAllAccessController{},
-			}
-			if tt.withValidator {
-				ra.bodyValidator = noopValidator{}
+			ra, err := newRAFromConfig(cfg)
+			require.NoError(t, err)
+			if tt.enabled || tt.withValidator {
+				state := ra.currentState()
+				replacement := *state
+				config := *state.config
+				config.BodyValidation.Enabled = tt.enabled
+				replacement.config = &config
+				if tt.withValidator {
+					replacement.bodyValidator = noopValidator{}
+				}
+				ra.state.Store(&replacement)
 			}
 
 			gin.SetMode(gin.ReleaseMode)

@@ -7,12 +7,15 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 // Хранит путь до файла и последнюю известную контрольную сумму
 type FileWithChecksum struct {
-	configPath     string
-	configChecksum string
+	mu              sync.Mutex
+	configPath      string
+	configChecksum  string
+	pendingChecksum string
 }
 
 func NewFileWithChecksum(path string) (*FileWithChecksum, error) {
@@ -33,24 +36,31 @@ func (fc *FileWithChecksum) Path() string {
 	return fc.configPath
 }
 
-// Контрольная сумма обновляется, если она успешно
-// посчитана и отличается от хранимой.
-// В случае ошибки возвращается true и ошибка
+// IsConfigFileChanged calculates a candidate checksum without publishing it.
+// Call CommitConfigFileChecksum only after the candidate config is active.
 func (cm *FileWithChecksum) IsConfigFileChanged() (bool, error) {
-	var (
-		newChecksum string
-		err         error
-	)
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
 
-	newChecksum, err = fileChecksum(cm.configPath)
+	newChecksum, err := fileChecksum(cm.configPath)
 	if err != nil {
+		cm.pendingChecksum = ""
 		return true, err
 	}
-	if newChecksum != cm.configChecksum {
-		cm.configChecksum = newChecksum
-		return true, nil
+	cm.pendingChecksum = newChecksum
+	return newChecksum != cm.configChecksum, nil
+}
+
+// CommitConfigFileChecksum publishes the last successfully observed checksum.
+func (cm *FileWithChecksum) CommitConfigFileChecksum() {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	if cm.pendingChecksum == "" {
+		return
 	}
-	return false, nil
+	cm.configChecksum = cm.pendingChecksum
+	cm.pendingChecksum = ""
 }
 
 // fileChecksum computes content checksum for change detection.

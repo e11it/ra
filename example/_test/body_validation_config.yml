@@ -1,5 +1,8 @@
 ---
 trimurlprefix: /topics/
+identity:
+  authenticated_user_header: X-Authenticated-User
+  trusted_proxies: [192.0.2.1/32]
 auth:
   acl:
   - path: .+

@@ -13,6 +13,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	RA "github.com/e11it/ra/internal/app/ra"
 )
 
 type raErrorResp struct {
@@ -52,6 +54,7 @@ func TestAuthRequest(t *testing.T) {
 	req.Header.Set("X-Original-Method", "POST")
 	req.Header.Set("X-Service", "kafka-rest")
 	req.Header.Set("Authorization", "Basic c2FwOnNlQzIzc0JGanV0azg5TnY=")
+	setAuthenticatedUser(req, "sap")
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -70,6 +73,7 @@ func TestAuthRequest2(t *testing.T) {
 	req.Header.Set("X-Original-Method", "POST")
 	req.Header.Set("X-Service", "kafka-rest")
 	req.SetBasicAuth("CapitalUserName", "passwordHere")
+	setAuthenticatedUser(req, "CapitalUserName")
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -88,6 +92,7 @@ func TestAuthAnyRequest(t *testing.T) {
 	req.Header.Set("X-Original-Method", "POST")
 	req.Header.Set("X-Service", "kafka-rest")
 	req.Header.Set("Authorization", "Basic c2FwOnNlQzIzc0JGanV0azg5TnY=")
+	setAuthenticatedUser(req, "sap")
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -106,6 +111,7 @@ func TestBadRequest(t *testing.T) {
 	req.Header.Set("X-Original-Method", "POST")
 	req.Header.Set("X-Service", "kafka-rest")
 	req.Header.Set("Authorization", "Basic c2FwOnNlQzIzc0JGanV0azg5TnY=")
+	setAuthenticatedUser(req, "sap")
 	router.ServeHTTP(w, req)
 	assertDenyResponse(t, w)
 }
@@ -123,6 +129,7 @@ func TestSchemaRegistrySuccess(t *testing.T) {
 	req.Header.Set("X-Original-Method", "GET")
 	req.Header.Set("X-Service", "kafka-rest")
 	req.Header.Set("Authorization", "Basic c2FwOnNlQzIzc0JGanV0azg5TnY=")
+	setAuthenticatedUser(req, "sap")
 	router.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
@@ -140,6 +147,7 @@ func TestSchemaRegistrySuccess2(t *testing.T) {
 	req.Header.Set("X-Original-Method", "GET")
 	req.Header.Set("X-Service", "kafka-rest")
 	req.Header.Set("Authorization", "Basic c2FwOnNlQzIzc0JGanV0azg5TnY=")
+	setAuthenticatedUser(req, "sap")
 	router.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
@@ -157,12 +165,17 @@ func TestSchemaRegistryDeny(t *testing.T) {
 	req.Header.Set("X-Original-Method", "DELETE")
 	req.Header.Set("X-Service", "kafka-rest")
 	req.Header.Set("Authorization", "Basic c2FwOnNlQzIzc0JGanV0azg5TnY=")
+	setAuthenticatedUser(req, "sap")
 	router.ServeHTTP(w, req)
 	assertDenyResponse(t, w)
 }
 
-func TestBodyValidation_GetRequestNotValidated(t *testing.T) {
+func TestBodyValidation_BuildContract(t *testing.T) {
 	router := testGetBodyValidationServer()
+	if !RA.CompiledWithCompanyTag {
+		assert.Nil(t, router, "public build must reject enabled body validation")
+		return
+	}
 	assert.NotNilf(t, router, "Error init router")
 
 	w := httptest.NewRecorder()
@@ -188,6 +201,7 @@ func BenchmarkAuthRequest(b *testing.B) {
 	req.Header.Set("X-Original-Method", "POST")
 	req.Header.Set("X-Service", "kafka-rest")
 	req.Header.Set("Authorization", "Basic c2FwOnNlQzIzc0JGanV0azg5TnY=")
+	setAuthenticatedUser(req, "sap")
 
 	router.ServeHTTP(w, req)
 
@@ -197,4 +211,9 @@ func BenchmarkAuthRequest(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		router.ServeHTTP(w, req)
 	}
+}
+
+func setAuthenticatedUser(req *http.Request, username string) {
+	req.RemoteAddr = "192.0.2.1:4321"
+	req.Header.Set("X-Authenticated-User", username)
 }

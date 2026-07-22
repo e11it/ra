@@ -4,9 +4,11 @@ main
 .vscode/
 .DS_Store
 docs/
-ra
+/ra
 .gomodcache/
 .gocache/
 .cursor/tmp/
 .golangci.bck.yml
 example/*.http
+
+.gograph/

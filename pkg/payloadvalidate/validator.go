@@ -2,11 +2,14 @@ package payloadvalidate
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/bytedance/sonic"
 
 	"github.com/e11it/ra/pkg/validate"
 )
+
+const missingValueCode = "missing_value"
 
 type produceV2Validator struct {
 	checkers []validate.RecordChecker
@@ -35,6 +38,15 @@ func (v *produceV2Validator) Validate(body []byte) *validate.Report {
 
 	for i := range req.Records {
 		rec := &req.Records[i]
+		if len(rec.Value) == 0 {
+			rep.AddError(
+				i,
+				fmt.Sprintf("records[%d].value", i),
+				missingValueCode,
+				"record value is required",
+			)
+			continue
+		}
 		ctx := &validate.CheckContext{
 			Index:  i,
 			Values: validate.NewValueStore(rec.Value),

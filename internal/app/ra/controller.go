@@ -1,7 +1,10 @@
 package ra
 
 import (
-	"context"
+	"fmt"
+	"slices"
+	"sync"
+	"sync/atomic"
 
 	"github.com/e11it/ra/pkg/auth"
 	"github.com/e11it/ra/pkg/auth/cache"
@@ -12,13 +15,16 @@ import (
 )
 
 type Ra struct {
-	ctx context.Context
-
 	cfgPath *filepath.FileWithChecksum
-	config  *Config
+	reload  sync.Mutex
+	state   atomic.Pointer[runtimeState]
+}
 
+type runtimeState struct {
+	config        *Config
 	auth          auth.AccessController
 	bodyValidator validate.BodyValidator
+	identity      *identitySource
 }
 
 func NewRA(configPath string) (*Ra, error) {
@@ -31,36 +37,34 @@ func NewRA(configPath string) (*Ra, error) {
 	if err != nil {
 		return nil, err
 	}
-	ra.ctx = context.TODO()
-	if ra.config, err = ra.loadConfig(); err != nil {
+	config, err := ra.loadConfig()
+	if err != nil {
 		return nil, err
 	}
-
-	if err = ra.createAccessController(ra.config); err != nil {
+	state, err := ra.buildRuntimeState(config)
+	if err != nil {
 		return nil, err
 	}
-	if ra.bodyValidator, err = createBodyValidator(ra.config.validationConfig()); err != nil {
-		return nil, err
-	}
+	ra.state.Store(state)
 	return ra, nil
 }
 
 func (ra *Ra) GetServerAddr() string {
-	return ra.config.Addr
+	return ra.currentState().config.Addr
 }
 
 func (ra *Ra) ProxyEnabled() bool {
-	return ra.config.Proxy.Enabled
+	return ra.currentState().config.Proxy.Enabled
 }
 
 func (ra *Ra) GetShutdownTimeout() uint {
-	return ra.config.ShutdownTimeout
+	return ra.currentState().config.ShutdownTimeout
 }
 
 // AccessLogExcludePaths возвращает пути (без query), для которых [AccessLogMiddleware] не пишет строку access-лога.
 // Значения берутся из актуального конфига, в том числе после [Ra.ReloadHandler].
 func (ra *Ra) AccessLogExcludePaths() []string {
-	return ra.config.AccessLog.ExcludePaths
+	return slices.Clone(ra.currentState().config.AccessLog.ExcludePaths)
 }
 
 func (ra *Ra) loadConfig() (*Config, error) {
@@ -74,19 +78,51 @@ func (ra *Ra) loadConfig() (*Config, error) {
 	return cfg, nil
 }
 
-func (ra *Ra) createAccessController(config *Config) (err error) {
+func (ra *Ra) createAccessController(config *Config) (auth.AccessController, error) {
 	if config.Cache.Enabled {
-		// Инициализируем контроллер с кешом
-		ra.auth, err = cache.NewAclWichCache(&config.Auth, config.Cache.CacheSize)
-		return
+		return cache.NewAclWichCache(&config.Auth, config.Cache.CacheSize)
 	}
-	ra.auth, err = auth.NewSimpleAccessController(&ra.config.Auth)
-	return
+	return auth.NewSimpleAccessController(&config.Auth)
+}
+
+func (ra *Ra) buildRuntimeState(config *Config) (*runtimeState, error) {
+	identity, err := newIdentitySource(config)
+	if err != nil {
+		return nil, err
+	}
+	accessController, err := ra.createAccessController(config)
+	if err != nil {
+		return nil, fmt.Errorf("create access controller: %w", err)
+	}
+	bodyValidator, err := createBodyValidator(config.validationConfig())
+	if err != nil {
+		return nil, fmt.Errorf("create body validator: %w", err)
+	}
+	return &runtimeState{
+		config:        config,
+		auth:          accessController,
+		bodyValidator: bodyValidator,
+		identity:      identity,
+	}, nil
+}
+
+func (ra *Ra) currentState() *runtimeState {
+	if ra == nil {
+		return nil
+	}
+	return ra.state.Load()
 }
 
 // Возращает флаг был ли перезагружен конфиг(или он не изменился)
 // и ошибку
 func (ra *Ra) ReloadHandler() (bool, error) {
+	return ra.reloadConfig(ra.buildRuntimeState)
+}
+
+func (ra *Ra) reloadConfig(buildState func(*Config) (*runtimeState, error)) (bool, error) {
+	ra.reload.Lock()
+	defer ra.reload.Unlock()
+
 	var config *Config
 	isChanged, err := ra.cfgPath.IsConfigFileChanged()
 	if err != nil {
@@ -98,20 +134,17 @@ func (ra *Ra) ReloadHandler() (bool, error) {
 	if config, err = ra.loadConfig(); err != nil {
 		return false, err
 	}
-	if err := ra.createAccessController(config); err != nil {
-		return false, err
-	}
-	validator, err := createBodyValidator(config.validationConfig())
+	state, err := buildState(config)
 	if err != nil {
 		return false, err
 	}
-	ra.bodyValidator = validator
-	ra.config = config
+	ra.state.Store(state)
+	ra.cfgPath.CommitConfigFileChecksum()
 	return true, nil
 }
 
 // BodyValidator возвращает активный валидатор тела (или nil, если он выключен
 // в конфигурации). Используется middleware-слоями Gin.
 func (ra *Ra) BodyValidator() validate.BodyValidator {
-	return ra.bodyValidator
+	return ra.currentState().bodyValidator
 }

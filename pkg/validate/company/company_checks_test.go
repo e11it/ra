@@ -205,6 +205,38 @@ func TestCompanyChecks_TombstoneWithPartitionFails(t *testing.T) {
 	assert.Contains(t, rep.FormatList(), "partition_forbidden")
 }
 
+func TestCompanyChecks_TombstoneRequiresExplicitNullAndStringKey(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		record   string
+		wantCode string
+	}{
+		{name: "valid tombstone", record: `{"key":"k","value":null}`},
+		{name: "missing value", record: `{"key":"k"}`, wantCode: "missing_value"},
+		{name: "missing key", record: `{"value":null}`, wantCode: "invalid_tombstone_key"},
+		{name: "numeric key", record: `{"key":42,"value":null}`, wantCode: "invalid_tombstone_key"},
+		{name: "empty key", record: `{"key":"","value":null}`, wantCode: "invalid_tombstone_key"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			v, err := payloadvalidate.NewValidatorFromConfig(companyConfig())
+			require.NoError(t, err)
+			rep := v.Validate([]byte(`{"records":[` + tt.record + `]}`))
+			if tt.wantCode == "" {
+				assert.False(t, rep.HasErrors())
+				return
+			}
+			require.True(t, rep.HasErrors())
+			assert.Contains(t, rep.FormatList(), tt.wantCode)
+		})
+	}
+}
+
 func TestCompanyChecks_ExtendedAvroTypes_ValidBatch(t *testing.T) {
 	v, err := payloadvalidate.NewValidatorFromConfig(companyConfigWithExtended(true))
 	require.NoError(t, err)

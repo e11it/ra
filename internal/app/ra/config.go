@@ -17,6 +17,13 @@ type Config struct {
 		IP      string `default:"X-Real-Ip"`
 		Method  string `default:"X-Original-Method"`
 	}
+	// Identity defines the authenticated-user assertion accepted from nginx.
+	// The socket peer must match TrustedProxies; forwarding headers are never
+	// used to decide whether the assertion is trusted.
+	Identity struct {
+		AuthenticatedUserHeader string   `yaml:"authenticated_user_header" default:"X-Authenticated-User"`
+		TrustedProxies          []string `yaml:"trusted_proxies"`
+	} `yaml:"identity"`
 	Cache struct {
 		Enabled   bool `default:"true"`
 		CacheSize int  `default:"1000"`

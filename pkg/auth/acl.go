@@ -24,11 +24,15 @@ type aclRuleCompilded struct {
 }
 
 // Функция создает новый список правил на основе списка ACL из конфигурации
-func (c *Config) getAclRulesCompiled() []*aclRuleCompilded {
+func (c *Config) getAclRulesCompiled() ([]*aclRuleCompilded, error) {
 	aclList := make([]*aclRuleCompilded, len(c.ACL))
 	for id, acl := range c.ACL {
 		aRC := new(aclRuleCompilded)
-		aRC.Path = regexp.MustCompile(acl.Path)
+		path, err := regexp.Compile(acl.Path)
+		if err != nil {
+			return nil, fmt.Errorf("compile acl[%d] path regexp: %w", id, err)
+		}
+		aRC.Path = path
 		aRC.Users, aRC.AnyUsers = arrayToMap(acl.Users)
 		aRC.Methods, aRC.AnyMethods = arrayToMapLower(acl.Methods)
 		aRC.ContentType, aRC.AnyContentType = arrayToMapLower(acl.ContentType)
@@ -36,7 +40,7 @@ func (c *Config) getAclRulesCompiled() []*aclRuleCompilded {
 		aclList[id] = aRC
 	}
 
-	return aclList
+	return aclList, nil
 }
 
 func arrayToMap(in []string) (rez map[string]bool, hasAny bool) {

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/e11it/ra/pkg/validate"
+	_ "github.com/e11it/ra/pkg/validate/common"
 )
 
 type recordSpyCheck struct {
@@ -86,5 +87,35 @@ func TestValidator_ParsesSchemaFields(t *testing.T) {
 	body := []byte(`{"value_schema_id":32,"records":[{"value":{"x":1}}]}`)
 	rep := v.Validate(body)
 	assert.False(t, rep.HasErrors())
+	assert.Equal(t, 1, spy.called)
+}
+
+func TestValidator_MissingValueRejectedWithOnlyTombstoneCheckConfigured(t *testing.T) {
+	v, err := NewValidatorFromConfig(validate.Config{
+		Enabled: true,
+		Checks:  []string{"is_tombstone"},
+	})
+	require.NoError(t, err)
+
+	rep := v.Validate([]byte(`{"records":[{}, {"key":"entity-1","value":null}]}`))
+
+	require.Len(t, rep.Issues(), 1)
+	assert.Equal(t, 0, rep.Issues()[0].RecordIndex)
+	assert.Equal(t, "records[0].value", rep.Issues()[0].Path)
+	assert.Equal(t, "missing_value", rep.Issues()[0].Code)
+}
+
+func TestValidator_MissingValueAggregatesAndSkipsRecordCheckers(t *testing.T) {
+	spy := &recordSpyCheck{}
+	v := buildValidator(t, spy)
+
+	rep := v.Validate([]byte(`{"records":[{}, {"value":{"ok":true}}, {"key":"entity-2"}]}`))
+
+	issues := rep.Issues()
+	require.Len(t, issues, 2)
+	assert.Equal(t, "records[0].value", issues[0].Path)
+	assert.Equal(t, "missing_value", issues[0].Code)
+	assert.Equal(t, "records[2].value", issues[1].Path)
+	assert.Equal(t, "missing_value", issues[1].Code)
 	assert.Equal(t, 1, spy.called)
 }

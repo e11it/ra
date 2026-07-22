@@ -6,6 +6,11 @@ access_log:
 proxy:
   enabled: true
   proxyhost: "http://host.docker.internal:9999"
+identity:
+  authenticated_user_header: X-Authenticated-User
+  # Add the exact nginx IP (/32 or /128) or its narrow network CIDR.
+  # Empty means forwarded identities are ignored and the ACL user is "anon".
+  trusted_proxies: []
 auth:
   urlvalidreg: ^dev1s\..+?$
   acl:
@@ -19,6 +24,6 @@ auth:
 body_validation:
   # Requires binary built with GO_TAGS containing "company".
   # If enabled, POST body must be non-empty; empty/whitespace body returns 400 from RA.
-  enabled: true
+  enabled: false
   allowed_operations: [CREATE, UPDATE, UPSERT, DELETE, SNAPSHOT, EVENT]
   checks: [no_partition, is_tombstone, envelope, payload, entity_key]

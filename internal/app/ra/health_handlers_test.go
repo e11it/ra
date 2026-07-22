@@ -18,7 +18,8 @@ func TestGinHealthAndReadyHandlers(t *testing.T) {
 	t.Run("health returns 200", func(t *testing.T) {
 		t.Parallel()
 
-		r := &Ra{config: &Config{}}
+		r, err := newRAFromConfig(testRuntimeConfig())
+		require.NoError(t, err)
 		router := gin.New()
 		router.GET("/health", r.HandleHealthGin)
 
@@ -33,10 +34,11 @@ func TestGinHealthAndReadyHandlers(t *testing.T) {
 	t.Run("ready returns 503 with json contract", func(t *testing.T) {
 		t.Parallel()
 
-		cfg := &Config{}
+		cfg := testRuntimeConfig()
 		cfg.Proxy.Enabled = true
 		cfg.Proxy.ProxyHost = "http://127.0.0.1:1"
-		r := &Ra{config: cfg}
+		r, err := newRAFromConfig(cfg)
+		require.NoError(t, err)
 		router := gin.New()
 		router.GET("/ready", r.HandleReadyGin)
 
@@ -47,7 +49,7 @@ func TestGinHealthAndReadyHandlers(t *testing.T) {
 		require.Equal(t, http.StatusServiceUnavailable, w.Code)
 
 		var got RAErrorResponse
-		err := json.Unmarshal(w.Body.Bytes(), &got)
+		err = json.Unmarshal(w.Body.Bytes(), &got)
 		require.NoError(t, err)
 		require.Equal(t, ErrorCodeReadyUnavailable, got.ErrorCode)
 	})

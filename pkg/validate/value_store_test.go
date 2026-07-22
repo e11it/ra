@@ -8,9 +8,9 @@ import (
 )
 
 func TestValueStore_IsNull(t *testing.T) {
-	assert.True(t, NewValueStore(nil).IsNull())
+	assert.False(t, NewValueStore(nil).IsNull())
 	assert.True(t, NewValueStore([]byte("null")).IsNull())
-	assert.True(t, NewValueStore([]byte("  ")).IsNull())
+	assert.False(t, NewValueStore([]byte("  ")).IsNull())
 	assert.False(t, NewValueStore([]byte(`{"x":1}`)).IsNull())
 }
 

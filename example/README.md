@@ -10,13 +10,17 @@
 
 
 ```sh
-curl -u avro-user:anypassword -X POST \
+curl -X POST \
       -H "Content-Type: application/vnd.kafka.avro.v2+json" \
       -H "Accept: application/vnd.kafka.v2+json" \
       -H "X-Request-ID: 5f385ffc-2419-44cd-8ae5-322f0b3b6856" \
       --data '{"value_schema": "{\"type\": \"record\", \"name\": \"User\", \"fields\": [{\"name\": \"name\", \"type\": \"string\"}]}", "records": [{"value": {"name": "testUser"}}]}' \
       "http://localhost:8080/topics/888-8.example.db.awesome.0"
 ```
+
+В production клиент аутентифицируется в nginx. nginx передаёт имя в
+`X-Authenticated-User`, а RA принимает его только от IP/CIDR из
+`identity.trusted_proxies`. Basic Auth, присланный напрямую в RA, не задаёт ACL identity.
 
 Ответ:
 ```json

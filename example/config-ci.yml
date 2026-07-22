@@ -5,6 +5,9 @@ access_log:
 proxy:
   enabled: true
   proxyhost: "http://localhost:9999"
+identity:
+  authenticated_user_header: X-Authenticated-User
+  trusted_proxies: [127.0.0.1/32]
 auth:
   urlvalidreg: ^dev1s\..+?$
   acl:

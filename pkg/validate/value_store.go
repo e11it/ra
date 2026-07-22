@@ -37,16 +37,14 @@ func (v *ValueStore) Raw() json.RawMessage {
 	return v.raw
 }
 
-// IsNull reports whether value is absent or json null.
+// IsPresent reports whether the record contains a value token.
+func (v *ValueStore) IsPresent() bool {
+	return v != nil && len(bytes.TrimSpace(v.raw)) > 0
+}
+
+// IsNull reports whether value is explicitly JSON null.
 func (v *ValueStore) IsNull() bool {
-	if v == nil {
-		return true
-	}
-	trimmed := bytes.TrimSpace(v.raw)
-	if len(trimmed) == 0 {
-		return true
-	}
-	return bytes.Equal(trimmed, []byte("null"))
+	return v != nil && bytes.Equal(bytes.TrimSpace(v.raw), []byte("null"))
 }
 
 // Root lazily decodes value as JSON object.

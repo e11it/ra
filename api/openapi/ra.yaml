@@ -9,6 +9,18 @@ paths:
   /auth:
     get:
       summary: Validate request in auth_request mode
+      description: >-
+        nginx authenticates the client and forwards the normalized identity in
+        X-Authenticated-User. RA accepts it only when the socket peer matches an
+        explicitly configured identity.trusted_proxies IP or CIDR. Basic Auth is
+        not used as identity by RA.
+      parameters:
+        - in: header
+          name: X-Authenticated-User
+          required: false
+          schema:
+            type: string
+          description: Authenticated identity asserted by a trusted reverse proxy.
       responses:
         "200":
           description: Request allowed

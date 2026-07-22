@@ -14,14 +14,19 @@ import (
 const readinessDialTimeout = 2 * time.Second
 
 func (ra *Ra) readinessError() error {
-	if ra == nil || ra.config == nil {
+	if ra == nil {
 		return fmt.Errorf("ra config is not initialized")
 	}
-	if !ra.config.Proxy.Enabled {
+	state := ra.currentState()
+	if state == nil {
+		return fmt.Errorf("ra config is not initialized")
+	}
+	config := state.config
+	if !config.Proxy.Enabled {
 		return nil
 	}
 
-	proxyURL, err := url.Parse(ra.config.Proxy.ProxyHost)
+	proxyURL, err := url.Parse(config.Proxy.ProxyHost)
 	if err != nil {
 		return fmt.Errorf("parse proxy host: %w", err)
 	}

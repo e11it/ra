@@ -11,7 +11,7 @@ import (
 	"github.com/e11it/ra/pkg/validate"
 )
 
-func TestCreateBodyValidator_DefaultBuildIgnoresBodyValidationConfig(t *testing.T) {
+func TestCreateBodyValidator_DefaultBuildRejectsEnabledBodyValidation(t *testing.T) {
 	v, err := createBodyValidator(validate.Config{
 		Enabled: true,
 		Checks:  []string{"no_partition", "is_tombstone", "envelope"},
@@ -19,6 +19,12 @@ func TestCreateBodyValidator_DefaultBuildIgnoresBodyValidationConfig(t *testing.
 			"allowed_operations": {"CREATE"},
 		},
 	})
+	require.ErrorContains(t, err, "body validation requires company build")
+	assert.Nil(t, v)
+}
+
+func TestCreateBodyValidator_DefaultBuildAllowsDisabledBodyValidation(t *testing.T) {
+	v, err := createBodyValidator(validate.Config{Enabled: false})
 	require.NoError(t, err)
 	assert.Nil(t, v)
 }

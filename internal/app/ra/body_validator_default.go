@@ -2,9 +2,16 @@
 
 package ra
 
-import "github.com/e11it/ra/pkg/validate"
+import (
+	"errors"
 
-// createBodyValidator keeps public builds validation-free even with body_validation in YAML.
-func createBodyValidator(_ validate.Config) (validate.BodyValidator, error) {
+	"github.com/e11it/ra/pkg/validate"
+)
+
+// createBodyValidator rejects company-only body validation in public builds.
+func createBodyValidator(cfg validate.Config) (validate.BodyValidator, error) {
+	if cfg.Enabled {
+		return nil, errors.New("body validation requires company build")
+	}
 	return nil, nil
 }

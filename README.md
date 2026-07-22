@@ -70,15 +70,28 @@ proxy:
   enabled: true
   proxyhost: "http://rest-proxy:8082"
 
+identity:
+  authenticated_user_header: X-Authenticated-User
+  # Exact nginx IP (/32 or /128) or a narrow nginx network CIDR.
+  trusted_proxies: [10.20.0.10/32]
+
 body_validation:
   enabled: true
   allowed_operations: [CREATE, UPDATE, UPSERT, DELETE, SNAPSHOT, EVENT]
   checks: [no_partition, is_tombstone, envelope, payload, entity_key]
 ```
 
+nginx должен аутентифицировать клиента и передавать нормализованное имя в
+`X-Authenticated-User`. RA не использует Basic Auth как источник identity и
+доверяет этому header только если фактический socket peer (`RemoteAddr`), а не
+`X-Forwarded-For`, входит в `identity.trusted_proxies`. Прямой клиент или
+недоверенный proxy получает identity `anon`. В production дополнительно закройте
+сетевой доступ к RA так, чтобы к нему мог обращаться только nginx.
+
 ## Body validation (company build)
 
 Валидация тела (`Kafka REST v2 produce`) активна только с build tag `company`.
+Public build завершает startup/reload ошибкой, если `body_validation.enabled: true`.
 
 - `pkg/validate` — контракты/check-pipeline (`Report/Issue/Control`)
 - `pkg/payloadvalidate` — protocol-layer parser для `records[]`

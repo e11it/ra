@@ -14,8 +14,9 @@ func TestReadinessError(t *testing.T) {
 	t.Run("proxy disabled is ready", func(t *testing.T) {
 		t.Parallel()
 
-		r := &Ra{config: &Config{}}
-		err := r.readinessError()
+		r, err := newRAFromConfig(testRuntimeConfig())
+		require.NoError(t, err)
+		err = r.readinessError()
 		require.NoError(t, err)
 	})
 
@@ -27,10 +28,11 @@ func TestReadinessError(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, ln.Close()) })
 
-		cfg := &Config{}
+		cfg := testRuntimeConfig()
 		cfg.Proxy.Enabled = true
 		cfg.Proxy.ProxyHost = "http://" + ln.Addr().String()
-		r := &Ra{config: cfg}
+		r, err := newRAFromConfig(cfg)
+		require.NoError(t, err)
 
 		err = r.readinessError()
 		require.NoError(t, err)
@@ -39,24 +41,26 @@ func TestReadinessError(t *testing.T) {
 	t.Run("proxy enabled with unreachable host is not ready", func(t *testing.T) {
 		t.Parallel()
 
-		cfg := &Config{}
+		cfg := testRuntimeConfig()
 		cfg.Proxy.Enabled = true
 		cfg.Proxy.ProxyHost = "http://127.0.0.1:1"
-		r := &Ra{config: cfg}
+		r, err := newRAFromConfig(cfg)
+		require.NoError(t, err)
 
-		err := r.readinessError()
+		err = r.readinessError()
 		require.Error(t, err)
 	})
 
 	t.Run("proxy enabled with invalid proxy host is not ready", func(t *testing.T) {
 		t.Parallel()
 
-		cfg := &Config{}
+		cfg := testRuntimeConfig()
 		cfg.Proxy.Enabled = true
 		cfg.Proxy.ProxyHost = "://bad"
-		r := &Ra{config: cfg}
+		r, err := newRAFromConfig(cfg)
+		require.NoError(t, err)
 
-		err := r.readinessError()
+		err = r.readinessError()
 		require.Error(t, err)
 	})
 }

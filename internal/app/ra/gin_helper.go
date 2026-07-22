@@ -35,33 +35,33 @@ func readAndRestoreBody(c *gin.Context) ([]byte, error) {
 
 // Создает объект auth.AuthRequest из git.Context
 func (ra *Ra) GetAuthRequest(c *gin.Context, proxy bool) (authRequest *auth.AuthRequest) {
+	return ra.getAuthRequest(c, proxy, ra.currentState())
+}
+
+func (ra *Ra) getAuthRequest(c *gin.Context, proxy bool, state *runtimeState) (authRequest *auth.AuthRequest) {
+	config := state.config
 	authRequest = new(auth.AuthRequest)
 	authRequest.ContentType = c.ContentType()
 	if proxy {
-		authRequest.AuthURL = strings.TrimPrefix(c.Request.RequestURI, ra.config.TrimURLPrefix)
+		authRequest.AuthURL = strings.TrimPrefix(c.Request.RequestURI, config.TrimURLPrefix)
 		authRequest.IP = c.ClientIP()
 		authRequest.Method = c.Request.Method
 	} else {
 		// Не очень удачное место для обрезания URL
-		authRequest.AuthURL = strings.TrimPrefix(c.GetHeader(ra.config.Headers.AuthURL), ra.config.TrimURLPrefix)
-		authRequest.IP = c.GetHeader(ra.config.Headers.IP)
-		authRequest.Method = c.GetHeader(ra.config.Headers.Method)
+		authRequest.AuthURL = strings.TrimPrefix(c.GetHeader(config.Headers.AuthURL), config.TrimURLPrefix)
+		authRequest.IP = c.GetHeader(config.Headers.IP)
+		authRequest.Method = c.GetHeader(config.Headers.Method)
 	}
-	// Нам так же важно знать имя пользователя
-	// TODO: это может делать другой middleware(проверять и выставлять)
-	username, _, authOK := c.Request.BasicAuth()
-	if !authOK {
-		username = "anon"
-	}
-	authRequest.AuthUser = username
+	authRequest.AuthUser = state.identity.username(c.Request)
 
 	return
 }
 
 func (ra *Ra) GetAuthMiddlerware(proxy bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authRequest := ra.GetAuthRequest(c, proxy)
-		err := ra.auth.Validate(authRequest)
+		state := ra.currentState()
+		authRequest := ra.getAuthRequest(c, proxy, state)
+		err := state.auth.Validate(authRequest)
 		if err != nil {
 			log.Warn().
 				Err(err).
@@ -82,7 +82,7 @@ func (ra *Ra) GetAuthMiddlerware(proxy bool) gin.HandlerFunc {
 			return
 		}
 
-		if c.Request.Method == http.MethodPost && ra.config.BodyValidation.Enabled {
+		if c.Request.Method == http.MethodPost && state.config.BodyValidation.Enabled {
 			body, err := readAndRestoreBody(c)
 			if err != nil {
 				log.Warn().Err(err).Str("request_uri", c.Request.RequestURI).Msg("read request body failed")
@@ -114,8 +114,8 @@ func (ra *Ra) GetAuthMiddlerware(proxy bool) gin.HandlerFunc {
 				)
 				return
 			}
-			if ra.bodyValidator != nil {
-				rep := ra.bodyValidator.Validate(body)
+			if state.bodyValidator != nil {
+				rep := state.bodyValidator.Validate(body)
 				if rep.HasErrors() {
 					log.Warn().
 						Str("request_uri", c.Request.RequestURI).
@@ -157,7 +157,7 @@ func GetUUIDMiddlerware() gin.HandlerFunc {
 }
 
 func (ra *Ra) GetProxyHandler() gin.HandlerFunc {
-	remote, err := url.Parse(ra.config.Proxy.ProxyHost)
+	remote, err := url.Parse(ra.currentState().config.Proxy.ProxyHost)
 	if err != nil {
 		log.Panic().
 			Err(err).Msg("failed to parse ProxyHost to URL")
