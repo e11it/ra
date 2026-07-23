@@ -169,6 +169,8 @@ jobs:
         with:
           username: ${{ vars.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
       - name: Compute image metadata
         id: image_meta
         env:
@@ -189,6 +191,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
+          platforms: linux/amd64,linux/arm64
           file: docker/RA.Dockerfile
           push: true
           tags: e11it/ra:${{ steps.image_meta.outputs.tag }}
